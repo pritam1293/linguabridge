@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LinguaBridge settings</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="header">
+      <img class="logo" src="../icons/icon-48.png" alt="" width="28" height="28" />
+      <div>
+        <h1>LinguaBridge</h1>
+        <p class="subtitle">Context-aware translation for Telegram Web</p>
+      </div>
+    </header>
+
+    <main class="main">
+      <div id="welcome" class="welcome" hidden>
+        <strong>Which language do you want to read in?</strong>
+        <p>
+          Pick it below. Every translation will be shown in this language. You can change
+          it anytime from this popup.
+        </p>
+      </div>
+
+      <label class="field field--primary" for="targetLanguage">
+        <span class="label">Read messages in</span>
+        <select id="targetLanguage"></select>
+        <small class="hint">Applies to all translated messages. Saved immediately.</small>
+      </label>
+
+      <label class="switch-row" for="enabled">
+        <span>
+          <strong>Enable LinguaBridge</strong>
+          <small>Show a translate badge on incoming messages</small>
+        </span>
+        <input id="enabled" type="checkbox" class="switch" />
+      </label>
+
+      <label class="field" for="contextTurns">
+        <span class="label">Context window</span>
+        <select id="contextTurns">
+          <option value="3">3 previous messages</option>
+          <option value="4">4 previous messages</option>
+          <option value="5">5 previous messages</option>
+        </select>
+        <small class="hint">More context improves slang, sarcasm and pronoun resolution.</small>
+      </label>
+
+      <label class="field" for="backendUrl">
+        <span class="label">Backend URL</span>
+        <input id="backendUrl" type="url" spellcheck="false" placeholder="http://127.0.0.1:8787" />
+        <small class="hint">Local only. Start it with <code>backend/run.sh</code>.</small>
+      </label>
+
+      <div class="check-group">
+        <label class="check-row">
+          <input id="showTone" type="checkbox" />
+          <span>Show detected tone</span>
+        </label>
+        <label class="check-row">
+          <input id="showCulturalNote" type="checkbox" />
+          <span>Show cultural notes</span>
+        </label>
+      </div>
+
+      <div class="actions">
+        <button id="save" class="btn btn--primary" type="button">Save</button>
+        <button id="test" class="btn" type="button">Test connection</button>
+      </div>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+
+      <section class="model-box">
+        <h2>Local model</h2>
+        <p>
+          The backend talks to Ollama on <code>127.0.0.1:11434</code>. Pull a multilingual
+          model first, for example:
+        </p>
+        <code class="command">ollama pull qwen2.5:7b</code>
+      </section>
+
+      <section class="privacy">
+        <p>
+          Only messages you click are sent, together with the preceding turns visible in
+          the chat. They go to your local backend and local model. Nothing is stored on a
+          server.
+        </p>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <button id="clearCache" class="link" type="button">Clear translation cache</button>
+      <span class="version">v0.1.0</span>
+    </footer>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

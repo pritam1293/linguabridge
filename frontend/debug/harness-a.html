@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LinguaBridge harness — WebA (/a/)</title>
+    <style>
+      :root { color-scheme: light; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: #dfe6ee;
+        font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: #111;
+      }
+      .banner {
+        padding: 10px 16px;
+        background: #202b3a;
+        color: #e8eef7;
+        font-size: 12px;
+      }
+      .banner strong { color: #fff; }
+      #MiddleColumn {
+        max-width: 620px;
+        margin: 20px auto 80px;
+        background: #eef2f7;
+        border-radius: 12px;
+        padding: 12px 0;
+        min-height: 70vh;
+      }
+      .messages-container { display: flex; flex-direction: column; gap: 8px; padding: 0 14px; }
+      .Message { display: flex; }
+      .Message.own { justify-content: flex-end; }
+      .message-content {
+        max-width: 78%;
+        background: #fff;
+        border-radius: 12px;
+        padding: 6px 10px 5px;
+        box-shadow: 0 1px 1px rgba(0, 0, 0, 0.08);
+        position: relative;
+      }
+      .Message.own .message-content { background: #d9f2c8; }
+      .peer-title { font-size: 12px; font-weight: 600; color: #3f74f0; margin-bottom: 2px; }
+      .text-content { white-space: pre-wrap; overflow-wrap: anywhere; }
+      .MessageMeta { display: flex; justify-content: flex-end; margin-top: 2px; }
+      .message-time { font-size: 10px; color: #7b8794; }
+    </style>
+  </head>
+  <body data-lb-client="a">
+    <div class="banner">
+      <strong>LinguaBridge harness — WebA shape</strong> · badges should appear on incoming
+      messages only · load the unpacked extension, then open this page on port 8788.
+    </div>
+
+    <div id="MiddleColumn">
+      <div class="messages-container">
+        <div class="Message" data-mid="a-1">
+          <div class="message-content">
+            <div class="text-content">¿Vienes a la fiesta esta noche?</div>
+            <div class="MessageMeta"><span class="message-time">21:01</span></div>
+          </div>
+        </div>
+
+        <div class="Message own" data-mid="a-2">
+          <div class="message-content">
+            <div class="text-content">Depende, ¿va a estar tu hermano?</div>
+            <div class="MessageMeta"><span class="message-time">21:02</span></div>
+          </div>
+        </div>
+
+        <div class="Message" data-mid="a-3">
+          <div class="message-content">
+            <div class="text-content">No mames, obvio que no. Se pone insoportable después de las dos cervezas 😂</div>
+            <div class="MessageMeta"><span class="message-time">21:03</span></div>
+          </div>
+        </div>
+
+        <div class="Message" data-mid="a-4">
+          <div class="message-content">
+            <div class="text-content">🔥🔥🔥</div>
+            <div class="MessageMeta"><span class="message-time">21:04</span></div>
+          </div>
+        </div>
+
+        <div class="Message" data-mid="a-5">
+          <div class="message-content">
+            <div class="text-content">Okay but seriously, that movie was so bad it circled back to being good. The acting? A crime.</div>
+            <div class="MessageMeta"><span class="message-time">21:06</span></div>
+          </div>
+        </div>
+
+        <div class="Message own" data-mid="a-6">
+          <div class="message-content">
+            <div class="text-content">I still can't believe you made me sit through it.</div>
+            <div class="MessageMeta"><span class="message-time">21:07</span></div>
+          </div>
+        </div>
+
+        <div class="Message" data-mid="a-7">
+          <div class="message-content">
+            <div class="text-content">ممكن نتكلم بعدين؟ عندي شيء مهم أقوله لك.</div>
+            <div class="MessageMeta"><span class="message-time">21:09</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

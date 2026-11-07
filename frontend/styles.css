@@ -1,0 +1,412 @@
+/* LinguaBridge UI.
+ *
+ * This file is injected twice:
+ *   1. as a content-script stylesheet (document level), where the .lb-*-host
+ *      rules below position the shadow hosts, and
+ *   2. as a <style> element inside each shadow root, where the component rules
+ *      apply. Host also gets :host() rules so it is reset even if Telegram's
+ *      CSS uses very specific selectors.
+ *
+ * Rules prefixed with :host are ignored at document level and vice versa.
+ */
+
+/* ------------------------------------------------------------------ hosts */
+.lb-badge-host {
+  all: initial !important;
+  position: absolute !important;
+  inset-inline-end: -9px !important;
+  top: -8px !important;
+  bottom: auto !important;
+  width: 20px !important;
+  height: 20px !important;
+  display: block !important;
+  z-index: 12 !important;
+  direction: ltr !important;
+  contain: layout style;
+}
+
+.lb-panel-host {
+  all: initial !important;
+  display: block !important;
+  position: relative !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-top: 6px !important;
+  z-index: 8 !important;
+  direction: ltr !important;
+  contain: layout style;
+}
+
+:host {
+  all: initial;
+}
+
+:host(.lb-badge-host) {
+  position: absolute;
+  inset-inline-end: -9px;
+  top: -8px;
+  bottom: auto;
+  width: 20px;
+  height: 20px;
+  display: block;
+  z-index: 12;
+  direction: ltr;
+}
+
+:host(.lb-panel-host) {
+  display: block;
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  margin-top: 6px;
+  z-index: 8;
+  direction: ltr;
+}
+
+/* ------------------------------------------------------------------ badge */
+.lb-badge {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  cursor: pointer;
+  /* Green = ready to translate. */
+  color: #ffffff;
+  background: #1f9d63;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  opacity: 0.85;
+  transition: opacity 140ms ease, background-color 140ms ease, color 140ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lb-badge:hover,
+.lb-badge:focus-visible {
+  opacity: 1;
+  background: #178352;
+  color: #ffffff;
+}
+
+.lb-badge:focus-visible {
+  outline: 2px solid rgba(31, 157, 99, 0.55);
+  outline-offset: 1px;
+}
+
+.lb-badge svg {
+  display: block;
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+}
+
+.lb-badge[disabled] {
+  cursor: default;
+}
+
+.lb-badge--loading {
+  opacity: 1;
+  background: #6b7280;
+  color: #ffffff;
+}
+
+.lb-badge--loading svg {
+  display: none;
+}
+
+.lb-badge--loading::after {
+  content: "";
+  display: block;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: lb-spin 700ms linear infinite;
+}
+
+.lb-badge--done {
+  /* Blue = already translated (cached or just translated). */
+  opacity: 0.9;
+  background: #3f74f0;
+  color: #ffffff;
+}
+
+.lb-badge--done:hover,
+.lb-badge--done:focus-visible {
+  opacity: 1;
+  background: #2f5fd0;
+  color: #ffffff;
+}
+
+.lb-badge--done:focus-visible {
+  outline-color: rgba(63, 116, 240, 0.55);
+}
+
+.lb-badge--error {
+  opacity: 1;
+  background: #c2413a;
+  color: #ffffff;
+}
+
+@media (hover: none) {
+  .lb-badge {
+    opacity: 0.8;
+  }
+}
+
+/* ------------------------------------------------------------------ panel */
+.lb-panel {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  padding: 8px 10px 7px;
+  border-radius: 10px;
+  background: #f4f5f7;
+  color: #14181f;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 400;
+  text-align: start;
+  white-space: normal;
+  user-select: text;
+  overflow-wrap: anywhere;
+  animation: lb-panel-in 160ms ease-out;
+}
+
+:host(.lb-dark) .lb-panel {
+  background: #20242b;
+  color: #e7ebf1;
+  border-color: rgba(255, 255, 255, 0.09);
+}
+
+.lb-panel__top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  min-height: 15px;
+}
+
+.lb-panel__brand {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6b7686;
+}
+
+:host(.lb-dark) .lb-panel__brand {
+  color: #9aa6b8;
+}
+
+.lb-chip {
+  display: inline-block;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #3a63b8;
+  background: rgba(64, 120, 255, 0.12);
+}
+
+:host(.lb-dark) .lb-chip {
+  color: #a8c4ff;
+  background: rgba(96, 148, 255, 0.18);
+}
+
+.lb-panel__source {
+  font-size: 10px;
+  color: #7a8494;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lb-close {
+  all: unset;
+  box-sizing: border-box;
+  margin-inline-start: auto;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  color: #7a8494;
+}
+
+.lb-close:hover,
+.lb-close:focus-visible {
+  background: rgba(120, 126, 138, 0.18);
+  color: inherit;
+}
+
+.lb-close:focus-visible {
+  outline: 1px solid currentColor;
+}
+
+.lb-translation {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+.lb-note {
+  margin-top: 6px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: #5f6b7c;
+}
+
+:host(.lb-dark) .lb-note {
+  color: #a6b1c2;
+}
+
+.lb-note summary {
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+  opacity: 0.85;
+}
+
+.lb-note summary::-webkit-details-marker {
+  display: none;
+}
+
+.lb-note summary::before {
+  content: "\2139";
+  margin-inline-end: 4px;
+}
+
+.lb-note p {
+  margin: 3px 0 0;
+}
+
+.lb-panel__foot {
+  margin-top: 5px;
+  font-size: 9.5px;
+  letter-spacing: 0.01em;
+  color: #96a0ae;
+}
+
+:host(.lb-dark) .lb-panel__foot {
+  color: #7f8a9b;
+}
+
+/* ---------------------------------------------------------------- skeleton */
+.lb-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+.lb-skeleton span {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, rgba(120, 126, 138, 0.14), rgba(120, 126, 138, 0.28), rgba(120, 126, 138, 0.14));
+  background-size: 200% 100%;
+  animation: lb-shimmer 1.1s ease-in-out infinite;
+}
+
+.lb-skeleton span:nth-child(1) { width: 88%; }
+.lb-skeleton span:nth-child(2) { width: 96%; }
+.lb-skeleton span:nth-child(3) { width: 62%; }
+
+/* ------------------------------------------------------------------- error */
+.lb-panel--error {
+  border-color: rgba(190, 70, 70, 0.3);
+}
+
+.lb-error {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #9d3b3b;
+}
+
+:host(.lb-dark) .lb-error {
+  color: #ff9d9d;
+}
+
+.lb-error__hint {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  color: #7a8494;
+}
+
+.lb-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.lb-btn {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #3a63b8;
+  background: rgba(64, 120, 255, 0.12);
+}
+
+.lb-btn:hover,
+.lb-btn:focus-visible {
+  background: rgba(64, 120, 255, 0.2);
+}
+
+.lb-btn:focus-visible {
+  outline: 1px solid currentColor;
+}
+
+:host(.lb-dark) .lb-btn {
+  color: #a8c4ff;
+  background: rgba(96, 148, 255, 0.18);
+}
+
+/* -------------------------------------------------------------- animations */
+@keyframes lb-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes lb-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes lb-panel-in {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lb-badge,
+  .lb-panel {
+    transition: none;
+    animation: none;
+  }
+  .lb-skeleton span,
+  .lb-badge--loading::after {
+    animation-duration: 2s;
+  }
+}
