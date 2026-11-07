@@ -35,15 +35,18 @@ For UI-only checks, use `http://127.0.0.1:8788/harness-a.html` and
 - [ ] Click an incoming message badge.
 - [ ] A loading panel appears immediately (shimmer skeleton).
 - [ ] Within a few seconds the panel shows the translated text.
-- [ ] The tone chip appears for non-neutral tones (try a joke, an insult, a formal message).
-- [ ] The cultural note appears when the model returns one and is collapsible.
-- [ ] Footer shows model, latency or `cached`, and `mock` when applicable.
+- [ ] The panel shows `Translated in X.Y seconds` directly below the translation.
+- [ ] The panel contains nothing else: no model name, tone tags, dialect or cultural note.
 - [ ] Clicking the badge again closes the panel.
-- [ ] The `×` button closes the panel.
 - [ ] Clicking another message's badge opens its panel independently.
 - [ ] Text in the panel is selectable and copyable.
 - [ ] Emojis and line breaks survive translation.
 - [ ] RTL target text renders right-to-left (`dir="auto"`).
+- [ ] Hinglish input translates by meaning (`"ye sab thik hogaya h"` → "everything has
+      been sorted out").
+- [ ] Hinglish target output is Latin script, never Devanagari.
+- [ ] An idiom with an equivalent target idiom uses that idiom; one without an equivalent
+      gets a short parenthetical explanation in the target language.
 
 ## Context awareness
 
@@ -58,15 +61,38 @@ Use a conversation where meaning depends on the previous turn (pronouns, slang, 
 
 - [ ] On first install, the settings page opens and asks which language to read in.
 - [ ] Changing **Read messages in** saves immediately (no Save click needed).
+- [ ] The language field is a combobox: clicking it opens a search box plus a scrollable list.
+- [ ] Typing `hin` filters to Hindi and Hinglish in real time.
+- [ ] Arrow keys move the highlight, Enter selects it, Escape closes the menu.
+- [ ] Selecting a language updates the trigger label and persists after reopening the popup.
+- [ ] The list is alphabetical (first entry Afrikaans).
+- [ ] **Enable LinguaBridge** and **Context window** sit side by side on one row.
+- [ ] The popup does not show a backend URL field or a LOCAL MODEL card.
 - [ ] Toggle **Enable LinguaBridge** off → badges disappear after the tab updates.
 - [ ] Toggle it back on → badges return.
 - [ ] Change target language → new translations use it (cached entries are keyed by it).
-- [ ] Disable **Show detected tone** → chip hidden.
-- [ ] Disable **Show cultural notes** → note hidden.
-- [ ] Invalid backend URL is rejected with a message.
-- [ ] **Test connection** reports model ready / Ollama down / model missing correctly.
+- [ ] **Test connection** shows “Connected — the server is working fine.” when the
+      backend and model are ready, without showing the URL, port or model name.
+- [ ] Stop the backend → **Test connection** shows a plain “Couldn't connect” message
+      with no technical details.
 - [ ] **Clear translation cache** → the next identical click reports non-cached latency.
 - [ ] Settings persist across browser restart (`chrome.storage.sync`).
+
+## Text translator
+
+- [ ] Open the popup → **Text translator** → the page opens in a new tab.
+- [ ] The target language list matches the popup (alphabetical, 74 entries).
+- [ ] The textarea stops accepting input at 250 characters and the counter reads
+      `250 / 250`.
+- [ ] Pasting text longer than 250 characters is clamped by the field.
+- [ ] **Translate** is disabled while empty and while over the limit.
+- [ ] A short Hinglish sentence translates correctly; the result shows the translation
+      and `Translated in X.Y seconds` only.
+- [ ] `Ctrl`/`Cmd`+`Enter` starts a translation.
+- [ ] **Clear** empties the field and hides the result.
+- [ ] Changing the target language here persists the same global setting used by Telegram.
+- [ ] The translator still works when **Enable LinguaBridge** is off.
+- [ ] Bypassing the UI with a 251-character message is rejected as too long.
 
 ## Failure handling
 
@@ -117,9 +143,9 @@ node scripts/e2e-harness.mjs
 ```
 
 The e2e script asserts: 4 badges on WebA, 3 on WebK, no outgoing badge, no emoji-only
-badge, bubble positioning, translated panel text, tone chip, toggle-to-close,
-dark-theme detection, the footer metadata, and that a cached badge rebuilt after a
-simulated virtual-list re-render does not auto-open a panel.
+badge, bubble positioning, translated panel text, the `Translated in X.Y seconds` line,
+toggle-to-close, dark-theme detection, and that a cached badge rebuilt after a simulated
+virtual-list re-render does not auto-open a panel.
 
 ## Release checklist
 

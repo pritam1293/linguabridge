@@ -91,12 +91,6 @@ h1 {
   color: var(--accent);
 }
 
-.field--primary select {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
-  font-size: 13px;
-  font-weight: 600;
-}
-
 /* Opened as a normal tab on first install (popup/popup.html?welcome=1). */
 body.as-page {
   width: auto;
@@ -183,8 +177,171 @@ body.as-page {
   letter-spacing: 0.04em;
 }
 
-select,
-input[type="url"] {
+/* --------------------------------------------------------- language combobox */
+.combobox {
+  position: relative;
+}
+
+.combobox__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--fg);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: start;
+  cursor: pointer;
+}
+
+.field--primary .combobox__trigger {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.combobox__trigger:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+}
+
+.combobox__trigger:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+.combobox__value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.combobox__chevron {
+  flex: none;
+  width: 12px;
+  height: 8px;
+  color: var(--muted);
+  transition: transform 140ms ease;
+}
+
+.combobox.is-open .combobox__chevron {
+  transform: rotate(180deg);
+}
+
+.combobox__menu {
+  position: absolute;
+  z-index: 20;
+  inset-inline: 0;
+  top: calc(100% + 4px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.combobox__menu[hidden] {
+  display: none;
+}
+
+.combobox__search {
+  padding: 6px;
+  border-bottom: 1px solid var(--line);
+}
+
+.combobox__search input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--field);
+  color: var(--fg);
+  font: inherit;
+  font-size: 11.5px;
+}
+
+.combobox__search input:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+/* The native clear icon is visual noise in a short list. */
+.combobox__search input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+
+.combobox__list {
+  max-height: 188px;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+
+.combobox__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.combobox__option:hover,
+.combobox__option.is-active {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.combobox__option.is-selected {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.combobox__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.combobox__code {
+  flex: none;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.combobox__check {
+  flex: none;
+  width: 12px;
+  color: var(--accent);
+  opacity: 0;
+}
+
+.combobox__option.is-selected .combobox__check {
+  opacity: 1;
+}
+
+.combobox__empty {
+  margin: 0;
+  padding: 12px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+select {
   width: 100%;
   padding: 7px 9px;
   border: 1px solid var(--line);
@@ -195,11 +352,43 @@ input[type="url"] {
   font-size: 12.5px;
 }
 
-select:focus,
-input[type="url"]:focus {
+select:focus {
   outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
   outline-offset: 1px;
   border-color: var(--accent);
+}
+
+/* ------------------------------------------------ enable + context two-up */
+.settings-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: stretch;
+}
+
+.settings-grid .switch-row {
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 10px;
+}
+
+.settings-grid .switch-row > span {
+  min-width: 0;
+}
+
+.settings-grid .field {
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+}
+
+.settings-grid .field select {
+  background: var(--bg);
+}
+
+.settings-grid .hint {
+  line-height: 1.35;
 }
 
 .hint {
@@ -210,26 +399,6 @@ input[type="url"]:focus {
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 10.8px;
-}
-
-.check-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.check-row {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12.5px;
-  cursor: pointer;
-}
-
-.check-row input {
-  width: 14px;
-  height: 14px;
-  accent-color: var(--accent);
 }
 
 .actions {
@@ -280,43 +449,71 @@ code {
 .status[data-kind="warn"] { color: var(--warn); }
 .status[data-kind="err"] { color: var(--err); }
 
-.model-box,
+.translator-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid #1f9d63;
+  border-radius: 10px;
+  background: #1f9d63;
+  color: #ffffff;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.translator-link:hover {
+  border-color: #178a55;
+  background: #178a55;
+}
+
+.translator-link:focus-visible {
+  outline: 2px solid #147a4b;
+  outline-offset: 2px;
+}
+
+.translator-link strong {
+  display: block;
+  font-size: 12.5px;
+}
+
+.translator-link small {
+  display: block;
+  margin-top: 1px;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.translator-link__icon {
+  flex: none;
+  display: inline-flex;
+  color: #ffffff;
+}
+
+.translator-link__icon svg {
+  display: block;
+}
+
+/* The empty status line should not add a second gap below the buttons. */
+.status:empty {
+  display: none;
+}
+
 .privacy {
   padding: 9px 10px;
-  border: 1px solid var(--line);
+  border: 1px dashed var(--line);
   border-radius: 9px;
   background: var(--field);
 }
 
-.model-box h2 {
-  margin: 0 0 4px;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--muted);
-}
-
-.model-box p,
 .privacy p {
   margin: 0;
   font-size: 10.8px;
   line-height: 1.45;
   color: var(--muted);
-}
-
-.command {
-  display: block;
-  margin-top: 6px;
-  padding: 5px 7px;
-  border-radius: 6px;
-  background: rgba(120, 126, 138, 0.14);
-  color: var(--fg);
-  overflow-x: auto;
-  white-space: nowrap;
-}
-
-.privacy {
-  border-style: dashed;
 }
 
 .footer {

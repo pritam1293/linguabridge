@@ -100,10 +100,21 @@ it via `chrome.runtime.getURL`. Shadow DOM isolates the badge and panel from Tel
 
 All model-provided strings (`translated_text`, `detected_tone`, `cultural_note`, source
 language) are written with `textContent`, never `innerHTML`. The only `innerHTML` use is
-the static SVG icon.
+the static SVG icon. The success panel renders only the translation and a
+`Translated in X.Y seconds` line; tone, notes, dialect and model metadata stay in the API
+response but are not shown.
 
 Badge states: idle (green) → loading (spinner) → done (blue) or error (red, panel with retry).
 Clicking the badge while a panel is open closes it.
+
+### Standalone translator
+
+`translator/translator.html` is a normal extension page opened from the popup. It shares
+the language catalogue with the popup (`lib/languages.js`) and sends
+`LB_TRANSLATE_TEXT` to the service worker. Input is capped at **250 characters** in the
+textarea, checked again in `background.js`, so the backend never receives a long manual
+translation. Unlike Telegram badges, the page works while `enabled` is off. The result
+shows only the translation and its response time.
 
 ### Theme
 
@@ -121,7 +132,10 @@ Responsibilities:
 - de-duplicate concurrent identical requests via an in-flight map,
 - `POST /v1/translate`, with one retry after 600 ms for transport/5xx errors,
 - a 90 s abort timeout,
-- `LB_PING` for the popup connection test (`/health/deep`, 5 s timeout).
+- `LB_PING` for the popup connection test (`/health/deep`, 5 s timeout); the popup shows
+  only a friendly connected / not-connected message, never the URL or model,
+- `LB_TRANSLATE_TEXT` for the standalone translator, ignoring the Telegram `enabled` flag
+  and enforcing a 250-character input limit.
 
 Errors are normalised to `{ ok: false, error: { code, message, ... } }` for the content
 script, which maps codes to human hints.
@@ -146,6 +160,19 @@ script, which maps codes to human hints.
 8. **Validation / repair** — parse to `LLMOutput`; on schema failure make exactly one
    repair request. In mock mode a failure is returned as an error instead of looping.
 9. **Response** — clamp output, fill `meta`, store in the TTL cache.
+
+### Multilingual and idiom policy
+
+The system prompt treats romanised Indic text (Hinglish, Tanglish, Benglish, Roman Urdu,
+Arabizi, Pinyin) as the underlying language, not as English-looking tokens, and tolerates
+inconsistent spelling (`hogaya` / `ho gaya` / `hogaaya`). When the target is Hinglish the
+model must answer in Latin script, never Devanagari.
+
+Idioms, proverbs and fixed expressions are never translated word-for-word. If the target
+language has a natural equivalent, the model uses it; otherwise it translates the sense
+and adds a short parenthetical explanation in the target language, so the meaning is not
+lost even though the UI hides `cultural_note`. A small set of examples in the system
+prompt demonstrates these rules.
 
 ### LLM adapters (`app/llm.py`)
 

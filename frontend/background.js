@@ -9,9 +9,7 @@
     enabled: true,
     targetLanguage: "en",
     contextTurns: 5,
-    backendUrl: "http://127.0.0.1:8787",
-    showTone: true,
-    showCulturalNote: true
+    backendUrl: "http://127.0.0.1:8787"
   };
 
   const CACHE_PREFIX = "lb_cache:";
@@ -23,8 +21,6 @@
   function normalizeSettings(raw) {
     const value = { ...DEFAULT_SETTINGS, ...(raw || {}) };
     value.enabled = value.enabled !== false;
-    value.showTone = value.showTone !== false;
-    value.showCulturalNote = value.showCulturalNote !== false;
     value.targetLanguage =
       typeof value.targetLanguage === "string" && value.targetLanguage.trim()
         ? value.targetLanguage.trim().slice(0, 40)
@@ -124,12 +120,20 @@
   }
 
   // -------------------------------------------------------------- payload
-  function buildBody(payload) {
+  function buildBody(payload, maxMessageChars = 0) {
     if (!payload || typeof payload !== "object") {
       return { error: { code: "invalid_request", message: "Missing translation payload." } };
     }
     if (typeof payload.message !== "string" || !payload.message.trim()) {
       return { error: { code: "invalid_request", message: "Message text is required." } };
+    }
+    if (maxMessageChars > 0 && payload.message.length > maxMessageChars) {
+      return {
+        error: {
+          code: "message_too_long",
+          message: `Text must be ${maxMessageChars} characters or fewer.`
+        }
+      };
     }
     if (
       typeof payload.target_language !== "string" ||
@@ -265,13 +269,14 @@
     return first;
   }
 
-  async function handleTranslate(payload) {
+  async function handleTranslate(payload, options = {}) {
+    const { ignoreEnabled = false, maxMessageChars = 0 } = options;
     const settings = await getSettings();
-    if (!settings.enabled) {
+    if (!ignoreEnabled && !settings.enabled) {
       return { ok: false, error: { code: "disabled", message: "LinguaBridge is turned off." } };
     }
 
-    const built = buildBody(payload);
+    const built = buildBody(payload, maxMessageChars);
     if (built.error) return { ok: false, error: built.error };
 
     const key = await sha256(JSON.stringify({ url: settings.backendUrl, body: built.body }));
@@ -382,6 +387,15 @@
 
     if (message.type === "LB_TRANSLATE") {
       respond(handleTranslate(message.payload), sendResponse);
+      return true;
+    }
+    if (message.type === "LB_TRANSLATE_TEXT") {
+      // The standalone translator works even when Telegram badges are off,
+      // and enforces a short input so the backend never receives a long text.
+      respond(
+        handleTranslate(message.payload, { ignoreEnabled: true, maxMessageChars: 250 }),
+        sendResponse
+      );
       return true;
     }
     if (message.type === "LB_GET_SETTINGS") {

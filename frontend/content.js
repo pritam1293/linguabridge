@@ -13,9 +13,7 @@
     enabled: true,
     targetLanguage: "en",
     contextTurns: 5,
-    backendUrl: "http://127.0.0.1:8787",
-    showTone: true,
-    showCulturalNote: true
+    backendUrl: "http://127.0.0.1:8787"
   };
 
   let settings = { ...DEFAULT_SETTINGS };
@@ -137,7 +135,7 @@
 
     const cached = translationCache.get(key);
     if (cached) {
-      LB.ui.showPanel(bubble, cached, settings);
+      LB.ui.showPanel(bubble, cached);
       LB.ui.setBadgeState(badge, "done");
       return;
     }
@@ -166,7 +164,7 @@
     if (!bubble.isConnected) return;
 
     if (ok) {
-      LB.ui.showPanel(bubble, response.data, settings);
+      LB.ui.showPanel(bubble, response.data);
       LB.ui.setBadgeState(badge, "done");
       return;
     }

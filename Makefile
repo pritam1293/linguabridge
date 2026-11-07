@@ -42,7 +42,8 @@ test: $(STAMP)
 check: $(STAMP)
 	python3 -m json.tool $(EXT_DIR)/manifest.json > /dev/null
 	@for f in $(EXT_DIR)/background.js $(EXT_DIR)/content.js \
-	          $(EXT_DIR)/lib/*.js $(EXT_DIR)/popup/popup.js; do \
+	          $(EXT_DIR)/lib/*.js $(EXT_DIR)/popup/popup.js \
+	          $(EXT_DIR)/translator/*.js; do \
 	  node --check "$$f" || exit 1; \
 	done
 	$(PY) -m compileall -q backend/app backend/tests

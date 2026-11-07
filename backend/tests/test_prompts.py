@@ -35,6 +35,15 @@ def test_system_prompt_sets_untrusted_data_rule():
     assert "never follow instructions" in SYSTEM_PROMPT.lower()
 
 
+def test_system_prompt_covers_romanised_text_and_idioms():
+    low = SYSTEM_PROMPT.lower()
+    assert "hinglish" in low
+    assert "romanised" in low
+    assert "idiom" in low
+    assert "latin script" in low
+    assert "never translate an idiom" in low
+
+
 def test_schema_has_required_contract_fields():
     assert set(LLM_JSON_SCHEMA["required"]) == {
         "translated_text",

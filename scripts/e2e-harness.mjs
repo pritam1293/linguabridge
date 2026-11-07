@@ -111,7 +111,11 @@ async function main() {
     `document.querySelector('[data-mid="a-3"] .lb-panel-host').shadowRoot.querySelector('.lb-panel').textContent`
   );
   assert(panelA.includes("[English]"), "panel renders the translated text");
-  assert(/casual|humorous/i.test(panelA), "tone chip is rendered for a joking message");
+  assert(/Translated in \d+\.\d seconds/.test(panelA), "panel shows the translation time");
+  assert(
+    !panelA.includes("LinguaBridge") && !panelA.includes("qwen"),
+    "panel shows only the translation and the time"
+  );
 
   await evaluate(`document.querySelector('[data-mid="a-3"] .lb-badge-host').click(); true`);
   await waitFor(`!document.querySelector('[data-mid="a-3"] .lb-panel-host')`);
@@ -164,8 +168,8 @@ async function main() {
   );
   assert(panelK.includes("[English]"), "WebK panel renders the translation");
   assert(
-    panelK.includes("LinguaBridge") && /qwen2\.5:7b|mock|cached|\d+ ms/.test(panelK),
-    "panel footer shows model / latency"
+    /Translated in \d+\.\d seconds/.test(panelK) && !panelK.includes("LinguaBridge"),
+    "WebK panel shows the translation time and nothing else"
   );
 
   console.log("\nAll harness checks passed.");

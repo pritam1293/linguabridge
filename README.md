@@ -5,7 +5,7 @@ Context-aware AI translation for **Telegram Web**, running entirely on your own 
 LinguaBridge is a Manifest V3 Chrome extension plus a small FastAPI backend. Incoming
 messages get a subtle translate badge; clicking one sends that message — together with the
 few messages before it — to a **local Ollama model**. The model returns a natural
-translation, a tone label, and a short cultural note.
+translation and how long it took.
 
 Nothing is translated automatically. Nothing leaves your computer.
 
@@ -16,13 +16,20 @@ Telegram Web  ──click──▶  content script  ──▶  service worker  �
 
 ## Features
 
-- **Opt-in only.** Every incoming text message gets a faint badge. Translation starts when
+- **Opt-in only.** Every incoming text message gets a green badge. Translation starts when
   you click it, never before.
 - **Incoming messages only.** Your own messages are intentionally left alone.
 - **Conversational context.** The previous 3–5 visible messages are sent with the target
   message, speaker-labelled, so sarcasm, slang and pronouns resolve correctly.
-- **Tone + culture.** Each result carries a tone label (e.g. `sarcastic, casual`) and an
-  optional one-sentence cultural note.
+- **Hinglish and romanised Indic languages.** Hinglish, Tanglish, Benglish, Roman Urdu and
+  other Latin-script forms of Indian languages are understood and translated by meaning —
+  `"ye sab thik ho gaya hai"` becomes "It's all sorted out", not a word-by-word reading.
+- **Idioms handled, not mangled.** A matching idiom is used when one exists; otherwise the
+  meaning is translated with a short explanation in the target language.
+- **Minimal result.** The panel shows the translation and `Translated in X.Y seconds`.
+  Nothing else — no model name, tone tags or dialect labels.
+- **Standalone text translator.** A dedicated page translates any sentence or paragraph you
+  type, up to 250 characters, so manual translations stay short and fast.
 - **Both Telegram clients.** Works on `web.telegram.org/a/` (WebA, React) and
   `web.telegram.org/k/` (WebK).
 - **Local-first.** No cloud LLM, no API keys, no analytics. The backend binds to
@@ -96,8 +103,15 @@ On first install the extension opens its settings page and asks **which language
 want to read in**. Pick it there (or click the toolbar icon anytime); the choice is
 global and saved immediately, not per message.
 
-The popup (toolbar icon) lets you pick the target language, context window (3/4/5),
-backend URL, theme options, and test the connection.
+The popup (toolbar icon) asks which language you want to read in using a searchable
+combobox over an alphabetical list, lets you change the context window (3/4/5), and tests
+the backend connection with a plain “connected” or “couldn't connect” result. **Test
+connection** never shows the endpoint or model name.
+
+Click **Text translator** in the popup to open the standalone translator page. Type or
+paste up to 250 characters, pick a target language, and press **Translate** (or
+`Ctrl`/`Cmd`+`Enter`). The result appears below with its response time. The translator
+works even when Telegram badges are switched off.
 
 ## Usage
 
@@ -105,7 +119,7 @@ backend URL, theme options, and test the connection.
 | ------ | ------ |
 | Click a message badge | Translates that message using the preceding turns |
 | Click again | Closes the panel |
-| Click `×` in the panel | Closes the panel |
+| Text translator (popup) | Opens the 250-character standalone translator |
 | Edited message | Badge is refreshed and the stale translation discarded |
 | Switching chats | Badges re-render; cache keys are scoped per chat |
 
@@ -133,9 +147,14 @@ Backend settings are environment variables prefixed with `LB_` (see
 | `LB_HOST` / `LB_PORT` | `127.0.0.1` / `8787` | Bind address |
 
 Extension settings live in `chrome.storage.sync` and are edited in the popup:
-`enabled`, `targetLanguage`, `contextTurns`, `backendUrl`, `showTone`,
-`showCulturalNote`. Host permissions cover every loopback port, so if you change
-`LB_PORT` you only need to update `backendUrl` in the popup.
+`enabled`, `targetLanguage`, `contextTurns` (plus a one-time `onboardingDone` flag). The
+backend URL defaults to `http://127.0.0.1:8787` and is no longer shown in the popup; host
+permissions cover every loopback port. If you change `LB_PORT`, set the new URL from the
+service-worker console (`chrome://extensions` → LinguaBridge → **service worker**):
+
+```js
+chrome.storage.sync.set({ backendUrl: "http://127.0.0.1:9000" });
+```
 
 ## API
 
@@ -230,7 +249,8 @@ Content-script match patterns cannot contain ports, so the manifest uses
 ### End-to-end smoke test
 
 `scripts/e2e-harness.mjs` drives a real Chrome over CDP and asserts badge injection,
-incoming-only behaviour, bubble positioning, panel rendering, tone and theming on both
+incoming-only behaviour, bubble positioning, panel rendering, the time line and theming on
+both
 harness pages.
 
 ```bash
@@ -261,8 +281,10 @@ frontend/
   content.js      observation, badge lifecycle, click handling
   background.js   HTTP, retry, dedupe, cache
   styles.css      shadow-DOM component styles
-  lib/            adapter registry, UI, context window, sanitising, messaging
+  lib/            adapter registry, UI, context window, sanitising, messaging,
+                  shared language catalogue
   popup/          settings UI
+  translator/     standalone 250-character translator page
   debug/          local DOM fixtures (not packaged)
   icons/          generated PNGs
 docs/

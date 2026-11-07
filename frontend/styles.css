@@ -14,8 +14,8 @@
 .lb-badge-host {
   all: initial !important;
   position: absolute !important;
-  inset-inline-end: -9px !important;
-  top: -8px !important;
+  inset-inline-end: 4px !important;
+  top: -12px !important;
   bottom: auto !important;
   width: 20px !important;
   height: 20px !important;
@@ -43,8 +43,8 @@
 
 :host(.lb-badge-host) {
   position: absolute;
-  inset-inline-end: -9px;
-  top: -8px;
+  inset-inline-end: 4px;
+  top: -12px;
   bottom: auto;
   width: 20px;
   height: 20px;
@@ -184,14 +184,6 @@
   border-color: rgba(255, 255, 255, 0.09);
 }
 
-.lb-panel__top {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 4px;
-  min-height: 15px;
-}
-
 .lb-panel__brand {
   font-size: 10px;
   font-weight: 600;
@@ -204,60 +196,6 @@
   color: #9aa6b8;
 }
 
-.lb-chip {
-  display: inline-block;
-  max-width: 150px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding: 1px 6px;
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: #3a63b8;
-  background: rgba(64, 120, 255, 0.12);
-}
-
-:host(.lb-dark) .lb-chip {
-  color: #a8c4ff;
-  background: rgba(96, 148, 255, 0.18);
-}
-
-.lb-panel__source {
-  font-size: 10px;
-  color: #7a8494;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.lb-close {
-  all: unset;
-  box-sizing: border-box;
-  margin-inline-start: auto;
-  width: 18px;
-  height: 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-  color: #7a8494;
-}
-
-.lb-close:hover,
-.lb-close:focus-visible {
-  background: rgba(120, 126, 138, 0.18);
-  color: inherit;
-}
-
-.lb-close:focus-visible {
-  outline: 1px solid currentColor;
-}
-
 .lb-translation {
   margin: 0;
   font-size: 13.5px;
@@ -266,45 +204,14 @@
   user-select: text;
 }
 
-.lb-note {
-  margin-top: 6px;
-  font-size: 11.5px;
-  line-height: 1.4;
-  color: #5f6b7c;
-}
-
-:host(.lb-dark) .lb-note {
-  color: #a6b1c2;
-}
-
-.lb-note summary {
-  cursor: pointer;
-  font-weight: 600;
-  list-style: none;
-  opacity: 0.85;
-}
-
-.lb-note summary::-webkit-details-marker {
-  display: none;
-}
-
-.lb-note summary::before {
-  content: "\2139";
-  margin-inline-end: 4px;
-}
-
-.lb-note p {
-  margin: 3px 0 0;
-}
-
-.lb-panel__foot {
-  margin-top: 5px;
-  font-size: 9.5px;
+.lb-latency {
+  margin-top: 4px;
+  font-size: 10.5px;
   letter-spacing: 0.01em;
   color: #96a0ae;
 }
 
-:host(.lb-dark) .lb-panel__foot {
+:host(.lb-dark) .lb-latency {
   color: #7f8a9b;
 }
 

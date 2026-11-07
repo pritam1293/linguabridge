@@ -24,45 +24,62 @@
         </p>
       </div>
 
-      <label class="field field--primary" for="targetLanguage">
-        <span class="label">Read messages in</span>
-        <select id="targetLanguage"></select>
+      <div class="field field--primary">
+        <span class="label" id="languageLabel">Read messages in</span>
+
+        <div class="combobox" id="languageCombobox">
+          <button
+            type="button"
+            id="languageTrigger"
+            class="combobox__trigger"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+            aria-controls="languageList"
+            aria-labelledby="languageLabel languageTriggerText"
+          >
+            <span id="languageTriggerText" class="combobox__value">English (en)</span>
+            <svg class="combobox__chevron" viewBox="0 0 12 8" aria-hidden="true" focusable="false">
+              <path d="M1 1.5 6 6.5l5-5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+
+          <div id="languageMenu" class="combobox__menu" hidden>
+            <div class="combobox__search">
+              <input
+                id="languageSearch"
+                type="search"
+                placeholder="Search languages…"
+                autocomplete="off"
+                spellcheck="false"
+                aria-label="Search languages"
+              />
+            </div>
+            <ul id="languageList" class="combobox__list" role="listbox" aria-labelledby="languageLabel"></ul>
+            <p id="languageEmpty" class="combobox__empty" hidden>No languages found.</p>
+          </div>
+        </div>
+
         <small class="hint">Applies to all translated messages. Saved immediately.</small>
-      </label>
+      </div>
 
-      <label class="switch-row" for="enabled">
-        <span>
-          <strong>Enable LinguaBridge</strong>
-          <small>Show a translate badge on incoming messages</small>
-        </span>
-        <input id="enabled" type="checkbox" class="switch" />
-      </label>
-
-      <label class="field" for="contextTurns">
-        <span class="label">Context window</span>
-        <select id="contextTurns">
-          <option value="3">3 previous messages</option>
-          <option value="4">4 previous messages</option>
-          <option value="5">5 previous messages</option>
-        </select>
-        <small class="hint">More context improves slang, sarcasm and pronoun resolution.</small>
-      </label>
-
-      <label class="field" for="backendUrl">
-        <span class="label">Backend URL</span>
-        <input id="backendUrl" type="url" spellcheck="false" placeholder="http://127.0.0.1:8787" />
-        <small class="hint">Local only. Start it with <code>backend/run.sh</code>.</small>
-      </label>
-
-      <div class="check-group">
-        <label class="check-row">
-          <input id="showTone" type="checkbox" />
-          <span>Show detected tone</span>
+      <div class="settings-grid">
+        <label class="switch-row" for="enabled">
+          <span>
+            <strong>Enable LinguaBridge</strong>
+            <small>Badges on incoming messages</small>
+          </span>
+          <input id="enabled" type="checkbox" class="switch" />
         </label>
-        <label class="check-row">
-          <input id="showCulturalNote" type="checkbox" />
-          <span>Show cultural notes</span>
-        </label>
+
+        <div class="field">
+          <label class="label" for="contextTurns">Context window</label>
+          <select id="contextTurns">
+            <option value="3">3 messages</option>
+            <option value="4">4 messages</option>
+            <option value="5">5 messages</option>
+          </select>
+          <small class="hint">Earlier messages sent with each request.</small>
+        </div>
       </div>
 
       <div class="actions">
@@ -72,14 +89,19 @@
 
       <p id="status" class="status" role="status" aria-live="polite"></p>
 
-      <section class="model-box">
-        <h2>Local model</h2>
-        <p>
-          The backend talks to Ollama on <code>127.0.0.1:11434</code>. Pull a multilingual
-          model first, for example:
-        </p>
-        <code class="command">ollama pull qwen2.5:7b</code>
-      </section>
+      <button id="openTranslator" class="translator-link" type="button">
+        <span>
+          <strong>Text translator</strong>
+          <small>Translate a sentence or paragraph (up to 250 characters)</small>
+        </span>
+        <span class="translator-link__icon" aria-hidden="true">
+          <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6.5 3H3.5A1.5 1.5 0 0 0 2 4.5v8A1.5 1.5 0 0 0 3.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-3" />
+            <path d="M9.5 2H14v4.5" />
+            <path d="M14 2 7.5 8.5" />
+          </svg>
+        </span>
+      </button>
 
       <section class="privacy">
         <p>
@@ -95,6 +117,7 @@
       <span class="version">v0.1.0</span>
     </footer>
 
+    <script src="../lib/languages.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

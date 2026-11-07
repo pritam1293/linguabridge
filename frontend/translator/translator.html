@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LinguaBridge Translator</title>
+    <link rel="stylesheet" href="translator.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="app__header">
+        <img class="logo" src="../icons/icon-48.png" alt="" width="40" height="40" />
+        <div>
+          <h1>LinguaBridge Translator</h1>
+          <p class="subtitle">Translate a sentence or paragraph with your local model.</p>
+        </div>
+      </header>
+
+      <section class="card">
+        <div class="field">
+          <label class="label" for="targetLanguage">Translate to</label>
+          <select id="targetLanguage"></select>
+        </div>
+
+        <div class="field">
+          <div class="label-row">
+            <label class="label" for="sourceText">Your text</label>
+            <span id="counter" class="counter">0 / 250</span>
+          </div>
+          <textarea
+            id="sourceText"
+            maxlength="250"
+            rows="7"
+            placeholder="Type or paste up to 250 characters…"
+            spellcheck="true"
+            autofocus
+          ></textarea>
+        </div>
+
+        <div class="actions">
+          <button id="translate" class="btn btn--primary" type="button" disabled>
+            Translate
+          </button>
+          <button id="clear" class="btn" type="button">Clear</button>
+        </div>
+
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+      </section>
+
+      <section id="resultCard" class="card card--result" hidden>
+        <div class="result__head">
+          <span class="label">Translation</span>
+          <button id="copy" class="link" type="button">Copy</button>
+        </div>
+        <p id="resultText" class="result__text" dir="auto"></p>
+        <p id="resultMeta" class="result__meta"></p>
+      </section>
+
+      <p class="privacy">
+        Only the text you submit is sent, to your local LinguaBridge server. Each
+        translation is capped at 250 characters.
+      </p>
+    </main>
+
+    <script src="../lib/languages.js"></script>
+    <script src="translator.js"></script>
+  </body>
+</html>

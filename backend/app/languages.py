@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-# Canonical code -> English display name. Order is used by the popup.
+# Canonical code -> English display name. The popup sorts these alphabetically.
 LANGUAGES: dict[str, str] = {
     "en": "English",
     "es": "Spanish",
@@ -28,6 +28,7 @@ LANGUAGES: dict[str, str] = {
     "fa": "Persian",
     "ur": "Urdu",
     "hi": "Hindi",
+    "hinglish": "Hinglish",
     "bn": "Bengali",
     "ta": "Tamil",
     "te": "Telugu",
@@ -101,6 +102,14 @@ _ALIASES: dict[str, str] = {
     "tagalog": "tl",
     "norwegian bokmal": "no",
     "nb": "no",
+    # Romanised / transliterated Indic languages. Source detection is handled
+    # by the prompt; these aliases make the same spellings usable as targets.
+    "hi-latn": "hinglish",
+    "roman hindi": "hinglish",
+    "romanized hindi": "hinglish",
+    "romanised hindi": "hinglish",
+    "latin hindi": "hinglish",
+    "hindi latin": "hinglish",
 }
 
 _ALLOWED = re.compile(r"[^A-Za-z0-9 _\-]")
@@ -135,4 +144,7 @@ def normalize_language(raw: str) -> tuple[str, str]:
 
 
 def language_options() -> list[dict[str, str]]:
-    return [{"code": code, "name": name} for code, name in LANGUAGES.items()]
+    return [
+        {"code": code, "name": name}
+        for code, name in sorted(LANGUAGES.items(), key=lambda item: item[1].casefold())
+    ]

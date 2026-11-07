@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.languages import LANGUAGES, normalize_language
+from app.languages import LANGUAGES, language_options, normalize_language
 
 
 def test_code_lookup():
@@ -32,3 +32,17 @@ def test_injection_characters_removed():
 def test_languages_table_is_sane():
     assert len(LANGUAGES) > 50
     assert all(code and name for code, name in LANGUAGES.items())
+
+
+def test_hinglish_aliases():
+    assert normalize_language("hinglish") == ("hinglish", "Hinglish")
+    assert normalize_language("Hinglish") == ("hinglish", "Hinglish")
+    assert normalize_language("hi-Latn") == ("hinglish", "Hinglish")
+    assert normalize_language("romanized hindi") == ("hinglish", "Hinglish")
+    assert normalize_language("roman hindi") == ("hinglish", "Hinglish")
+
+
+def test_language_options_are_alphabetical():
+    names = [item["name"] for item in language_options()]
+    assert names == sorted(names, key=str.casefold)
+    assert any(item["code"] == "hinglish" for item in language_options())

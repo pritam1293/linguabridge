@@ -122,69 +122,29 @@
     badge.host.dataset.lbBusy = state === "loading" ? "1" : "0";
   }
 
-  function topRow(data, settings) {
-    const row = makeElement("div", "lb-panel__top");
-    row.appendChild(makeElement("span", "lb-panel__brand", "LinguaBridge"));
-    const tone = data.detected_tone ? String(data.detected_tone).trim() : "";
-    if (settings.showTone !== false && tone && tone.toLowerCase() !== "neutral") {
-      const chip = makeElement("span", "lb-chip", tone);
-      chip.title = `Detected tone: ${tone}`;
-      row.appendChild(chip);
-    }
+  function latencyLine(data) {
     const meta = data.meta || {};
-    const source = meta.source_language_detected
-      ? String(meta.source_language_detected).trim()
-      : "";
-    if (source && !/^(unknown|none|auto)$/i.test(source)) {
-      row.appendChild(makeElement("span", "lb-panel__source", `from ${source}`));
+    if (typeof meta.latency_ms !== "number" || !Number.isFinite(meta.latency_ms)) {
+      return null;
     }
-    const close = makeElement("button", "lb-close", "\u00d7");
-    close.type = "button";
-    close.title = "Hide translation";
-    close.setAttribute("aria-label", "Hide translation");
-    close.addEventListener("click", (event) => {
-      event.stopPropagation();
-      const host = row.getRootNode && row.getRootNode();
-      const hostElement = host && host.host;
-      if (hostElement) hostElement.remove();
-    });
-    row.appendChild(close);
-    return row;
+    const seconds = (meta.latency_ms / 1000).toFixed(1);
+    return makeElement("div", "lb-latency", `Translated in ${seconds} seconds`);
   }
 
-  function footer(data) {
-    const meta = data.meta || {};
-    const parts = ["LinguaBridge"];
-    if (meta.model) parts.push(String(meta.model));
-    if (meta.cached) parts.push("cached");
-    else if (typeof meta.latency_ms === "number") parts.push(`${meta.latency_ms} ms`);
-    if (meta.mode === "mock") parts.push("mock");
-    return makeElement("div", "lb-panel__foot", parts.join(" \u00b7 "));
-  }
-
-  function showPanel(bubble, data, settings) {
+  function showPanel(bubble, data) {
     clearPanels(bubble);
     const { host, shadow } = makeHost("lb-panel-host", "panel");
     const panel = makeElement("div", "lb-panel");
     panel.setAttribute("role", "region");
     panel.setAttribute("aria-label", "AI translation");
-    panel.appendChild(topRow(data, settings));
 
     const translation = makeElement("p", "lb-translation", data.translated_text || "");
     translation.setAttribute("dir", "auto");
     panel.appendChild(translation);
 
-    if (settings.showCulturalNote !== false && data.cultural_note) {
-      const note = makeElement("details", "lb-note");
-      const summary = makeElement("summary", "", "Cultural note");
-      const text = makeElement("p", "", data.cultural_note);
-      text.setAttribute("dir", "auto");
-      note.appendChild(summary);
-      note.appendChild(text);
-      panel.appendChild(note);
-    }
+    const latency = latencyLine(data);
+    if (latency) panel.appendChild(latency);
 
-    panel.appendChild(footer(data));
     shadow.appendChild(panel);
     bubble.appendChild(host);
     return host;

@@ -3,7 +3,7 @@
   "name": "LinguaBridge — Contextual AI Translation for Telegram Web",
   "short_name": "LinguaBridge",
   "version": "0.1.0",
-  "description": "Opt-in, context-aware AI translation for Telegram Web. Click a message's badge to get tone-aware translations with cultural notes.",
+  "description": "Opt-in, context-aware AI translation for Telegram Web, plus a standalone 250-character text translator. Runs on your local model.",
   "minimum_chrome_version": "116",
   "permissions": ["storage"],
   "host_permissions": [

@@ -3,90 +3,16 @@
     enabled: true,
     targetLanguage: "en",
     contextTurns: 5,
-    backendUrl: "http://127.0.0.1:8787",
-    showTone: true,
-    showCulturalNote: true,
     onboardingDone: false
   };
 
-  // Kept in sync with backend/app/languages.py.
-  const LANGUAGES = [
-    ["en", "English"],
-    ["es", "Spanish"],
-    ["pt", "Portuguese"],
-    ["pt-BR", "Brazilian Portuguese"],
-    ["fr", "French"],
-    ["de", "German"],
-    ["it", "Italian"],
-    ["nl", "Dutch"],
-    ["ru", "Russian"],
-    ["uk", "Ukrainian"],
-    ["pl", "Polish"],
-    ["cs", "Czech"],
-    ["sk", "Slovak"],
-    ["ro", "Romanian"],
-    ["hu", "Hungarian"],
-    ["el", "Greek"],
-    ["tr", "Turkish"],
-    ["ar", "Arabic"],
-    ["he", "Hebrew"],
-    ["fa", "Persian"],
-    ["ur", "Urdu"],
-    ["hi", "Hindi"],
-    ["bn", "Bengali"],
-    ["ta", "Tamil"],
-    ["te", "Telugu"],
-    ["mr", "Marathi"],
-    ["gu", "Gujarati"],
-    ["pa", "Punjabi"],
-    ["th", "Thai"],
-    ["vi", "Vietnamese"],
-    ["id", "Indonesian"],
-    ["ms", "Malay"],
-    ["tl", "Filipino"],
-    ["zh", "Chinese (Simplified)"],
-    ["zh-TW", "Chinese (Traditional)"],
-    ["ja", "Japanese"],
-    ["ko", "Korean"],
-    ["sv", "Swedish"],
-    ["no", "Norwegian"],
-    ["da", "Danish"],
-    ["fi", "Finnish"],
-    ["et", "Estonian"],
-    ["lv", "Latvian"],
-    ["lt", "Lithuanian"],
-    ["sr", "Serbian"],
-    ["hr", "Croatian"],
-    ["bg", "Bulgarian"],
-    ["ca", "Catalan"],
-    ["eu", "Basque"],
-    ["gl", "Galician"],
-    ["sw", "Swahili"],
-    ["af", "Afrikaans"],
-    ["am", "Amharic"],
-    ["yo", "Yoruba"],
-    ["ha", "Hausa"],
-    ["zu", "Zulu"],
-    ["sq", "Albanian"],
-    ["mk", "Macedonian"],
-    ["sl", "Slovenian"],
-    ["is", "Icelandic"],
-    ["ga", "Irish"],
-    ["cy", "Welsh"],
-    ["az", "Azerbaijani"],
-    ["kk", "Kazakh"],
-    ["uz", "Uzbek"],
-    ["hy", "Armenian"],
-    ["ka", "Georgian"],
-    ["ne", "Nepali"],
-    ["si", "Sinhala"],
-    ["km", "Khmer"],
-    ["lo", "Lao"],
-    ["my", "Burmese"],
-    ["mn", "Mongolian"]
-  ];
+  // Shared with the text translator; kept in sync with backend/app/languages.py.
+  const LANGUAGES = (globalThis.LB && globalThis.LB.languages.all) || [];
 
   const $ = (id) => document.getElementById(id);
+
+  let selectedCode = DEFAULTS.targetLanguage;
+  let activeIndex = 0;
 
   function setStatus(text, kind) {
     const status = $("status");
@@ -94,66 +20,159 @@
     status.dataset.kind = kind || "";
   }
 
-  function populateLanguages(selected) {
-    const select = $("targetLanguage");
-    select.textContent = "";
-    const known = new Set();
-    for (const [code, name] of LANGUAGES) {
-      known.add(code);
-      const option = document.createElement("option");
-      option.value = code;
-      option.textContent = `${name} (${code})`;
-      select.appendChild(option);
-    }
-    if (selected && !known.has(selected)) {
-      const option = document.createElement("option");
-      option.value = selected;
-      option.textContent = selected;
-      select.appendChild(option);
-    }
-    select.value = selected || "en";
+  function languageLabel(code) {
+    return globalThis.LB && globalThis.LB.languages
+      ? globalThis.LB.languages.label(code)
+      : code || "";
   }
 
-  function isValidHttpUrl(value) {
-    try {
-      const url = new URL(value);
-      return url.protocol === "http:" || url.protocol === "https:";
-    } catch (_error) {
-      return false;
+  function updateTrigger() {
+    $("languageTriggerText").textContent = languageLabel(selectedCode);
+  }
+
+  function options() {
+    return [...$("languageList").querySelectorAll(".combobox__option")];
+  }
+
+  function refreshActive() {
+    const items = options();
+    items.forEach((item, index) => {
+      item.classList.toggle("is-active", index === activeIndex);
+    });
+    const active = items[activeIndex];
+    if (active) active.scrollIntoView({ block: "nearest" });
+  }
+
+  function matchesLanguage(code, name, needle) {
+    if (!needle) return true;
+    const lowerName = name.toLowerCase();
+    const lowerCode = code.toLowerCase();
+    if (lowerName.startsWith(needle) || lowerCode.startsWith(needle)) return true;
+    // Match the start of any word so "hin" finds Hindi/Hinglish but not "Chinese".
+    const words = (value) => value.split(/[^a-z0-9]+/).filter(Boolean);
+    return (
+      words(lowerName).some((word) => word.startsWith(needle)) ||
+      words(lowerCode).some((word) => word.startsWith(needle))
+    );
+  }
+
+  function renderLanguages(query) {
+    const list = $("languageList");
+    const empty = $("languageEmpty");
+    const needle = String(query || "").trim().toLowerCase();
+    list.textContent = "";
+
+    const matches = LANGUAGES.filter(
+      ([code, name]) => matchesLanguage(code, name, needle)
+    );
+
+    // Keep an unknown stored code selectable instead of silently dropping it.
+    if (
+      !needle &&
+      selectedCode &&
+      !LANGUAGES.some(([code]) => code === selectedCode)
+    ) {
+      matches.unshift([selectedCode, selectedCode]);
     }
+
+    for (const [code, name] of matches) {
+      const item = document.createElement("li");
+      item.className = "combobox__option";
+      item.setAttribute("role", "option");
+      item.dataset.code = code;
+      item.setAttribute("aria-selected", code === selectedCode ? "true" : "false");
+      item.classList.toggle("is-selected", code === selectedCode);
+
+      const label = document.createElement("span");
+      label.className = "combobox__name";
+      label.textContent = name;
+
+      const codeTag = document.createElement("span");
+      codeTag.className = "combobox__code";
+      codeTag.textContent = code;
+
+      const check = document.createElement("span");
+      check.className = "combobox__check";
+      check.setAttribute("aria-hidden", "true");
+      check.textContent = "✓";
+
+      item.append(label, codeTag, check);
+      item.addEventListener("click", () => chooseLanguage(code));
+      list.appendChild(item);
+    }
+
+    empty.hidden = matches.length > 0;
+    const selectedIndex = matches.findIndex(([code]) => code === selectedCode);
+    activeIndex = selectedIndex >= 0 ? selectedIndex : 0;
+    refreshActive();
+  }
+
+  function openMenu() {
+    const menu = $("languageMenu");
+    if (!menu.hidden) return;
+    menu.hidden = false;
+    $("languageCombobox").classList.add("is-open");
+    $("languageTrigger").setAttribute("aria-expanded", "true");
+    $("languageSearch").value = "";
+    renderLanguages("");
+    $("languageSearch").focus();
+  }
+
+  function closeMenu(focusTrigger) {
+    const menu = $("languageMenu");
+    if (menu.hidden) return;
+    menu.hidden = true;
+    $("languageCombobox").classList.remove("is-open");
+    $("languageTrigger").setAttribute("aria-expanded", "false");
+    if (focusTrigger) $("languageTrigger").focus();
+  }
+
+  function moveActive(delta) {
+    const items = options();
+    if (!items.length) return;
+    activeIndex = (activeIndex + delta + items.length) % items.length;
+    refreshActive();
+  }
+
+  async function chooseLanguage(code) {
+    selectedCode = code;
+    updateTrigger();
+    renderLanguages($("languageSearch").value);
+    closeMenu(true);
+    await chrome.storage.sync.set({ targetLanguage: code, onboardingDone: true });
+    $("welcome").hidden = true;
+    setStatus(
+      `Saved. Translated messages will be shown in ${languageLabel(code)}.`,
+      "ok"
+    );
   }
 
   function readForm() {
-    const backendUrl = $("backendUrl").value.trim().replace(/\/+$/, "");
     const turns = Number($("contextTurns").value);
     return {
       enabled: $("enabled").checked,
-      targetLanguage: $("targetLanguage").value,
-      contextTurns: Number.isFinite(turns) ? Math.min(5, Math.max(3, turns)) : 5,
-      backendUrl,
-      showTone: $("showTone").checked,
-      showCulturalNote: $("showCulturalNote").checked
+      targetLanguage: selectedCode,
+      contextTurns: Number.isFinite(turns) ? Math.min(5, Math.max(3, turns)) : 5
     };
   }
 
   function fillForm(settings) {
     $("enabled").checked = settings.enabled !== false;
-    populateLanguages(settings.targetLanguage);
+    selectedCode = settings.targetLanguage || DEFAULTS.targetLanguage;
+    updateTrigger();
+    renderLanguages("");
     $("welcome").hidden = settings.onboardingDone === true;
     const turns = Number(settings.contextTurns);
     $("contextTurns").value = String(
       Number.isFinite(turns) ? Math.min(5, Math.max(3, turns)) : 5
     );
-    $("backendUrl").value = settings.backendUrl || DEFAULTS.backendUrl;
-    $("showTone").checked = settings.showTone !== false;
-    $("showCulturalNote").checked = settings.showCulturalNote !== false;
   }
 
   async function save() {
     const settings = readForm();
-    if (!isValidHttpUrl(settings.backendUrl)) {
-      setStatus("Backend URL must start with http:// or https://.", "err");
-      $("backendUrl").focus();
+    if (!settings.targetLanguage) {
+      setStatus("Pick a language first.", "err");
+      $("languageTrigger").focus();
       return;
     }
     await chrome.storage.sync.set({ ...settings, onboardingDone: true });
@@ -161,51 +180,32 @@
     setStatus("Saved. Open or refresh Telegram Web.", "ok");
   }
 
-  async function saveLanguage() {
-    const select = $("targetLanguage");
-    const targetLanguage = select.value;
-    await chrome.storage.sync.set({ targetLanguage, onboardingDone: true });
-    $("welcome").hidden = true;
-    const name = select.selectedOptions[0]?.textContent || targetLanguage;
-    setStatus(`Saved. Translated messages will be shown in ${name}.`, "ok");
-  }
-
   async function testConnection() {
-    const backendUrl = $("backendUrl").value.trim().replace(/\/+$/, "");
-    if (!isValidHttpUrl(backendUrl)) {
-      setStatus("Enter a valid http(s) backend URL first.", "err");
-      return;
-    }
-    setStatus("Checking backend and model…", "");
+    setStatus("Checking connection…", "");
     $("test").disabled = true;
     try {
       const response = await new Promise((resolve) => {
-        chrome.runtime.sendMessage(
-          { type: "LB_PING", payload: { backendUrl } },
-          (reply) => {
-            const error = chrome.runtime.lastError;
-            if (error) resolve({ ok: false, error: { message: error.message } });
-            else resolve(reply || { ok: false, error: { message: "No response." } });
-          }
-        );
+        chrome.runtime.sendMessage({ type: "LB_PING" }, (reply) => {
+          const error = chrome.runtime.lastError;
+          if (error) resolve({ ok: false, error: { code: "extension_error" } });
+          else resolve(reply || { ok: false, error: { code: "no_response" } });
+        });
       });
 
       if (!response.ok) {
-        setStatus(response.error?.message || "Could not reach the backend.", "err");
+        setStatus(
+          "Couldn't connect to the server. Make sure the LinguaBridge server is running and try again.",
+          "err"
+        );
         return;
       }
-      const data = response.data || {};
-      const llm = data.llm || {};
+
+      const llm = (response.data && response.data.llm) || {};
       if (llm.model_present) {
-        setStatus(`Connected · ${data.model || "model"} ready (${data.mode || "?"}).`, "ok");
-      } else if (llm.ollama === "down") {
-        setStatus(
-          "Backend is up, but Ollama is not reachable. Start it with `ollama serve`.",
-          "warn"
-        );
+        setStatus("Connected — the server is working fine.", "ok");
       } else {
         setStatus(
-          llm.hint || "Backend is up, but the configured model is not pulled.",
+          "The server is running, but translation isn't ready yet. Start the local AI model and try again.",
           "warn"
         );
       }
@@ -233,15 +233,66 @@
     if (isFirstRunPage) {
       document.body.classList.add("as-page");
       $("welcome").hidden = false;
-      $("targetLanguage").focus();
+      $("languageTrigger").focus();
     }
 
     $("save").addEventListener("click", save);
-    $("targetLanguage").addEventListener("change", saveLanguage);
     $("test").addEventListener("click", testConnection);
     $("clearCache").addEventListener("click", clearCache);
-    $("backendUrl").addEventListener("keydown", (event) => {
-      if (event.key === "Enter") save();
+    $("openTranslator").addEventListener("click", () => {
+      chrome.tabs.create({ url: chrome.runtime.getURL("translator/translator.html") });
+      window.close();
+    });
+
+    const trigger = $("languageTrigger");
+    const search = $("languageSearch");
+    const combobox = $("languageCombobox");
+
+    trigger.addEventListener("click", () => {
+      if ($("languageMenu").hidden) openMenu();
+      else closeMenu(true);
+    });
+
+    trigger.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        openMenu();
+      } else if (event.key === "Escape") {
+        closeMenu(false);
+      }
+    });
+
+    search.addEventListener("input", () => renderLanguages(search.value));
+
+    search.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        moveActive(1);
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        moveActive(-1);
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        const items = options();
+        const item = items[activeIndex] || items[0];
+        if (item) item.click();
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        closeMenu(true);
+      }
+    });
+
+    document.addEventListener("pointerdown", (event) => {
+      if (!combobox.contains(event.target)) closeMenu(false);
+    });
+
+    // Close when keyboard focus leaves the combobox entirely (e.g. Tab to Save).
+    // relatedTarget is null for non-focusable clicks inside the menu; those are
+    // handled by the option's click handler.
+    combobox.addEventListener("focusout", (event) => {
+      if (event.relatedTarget && !combobox.contains(event.relatedTarget)) {
+        closeMenu(false);
+      }
     });
   }
 
