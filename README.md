@@ -1,6 +1,6 @@
 # LinguaBridge
 
-Context-aware AI translation for **Telegram Web**, running entirely on your own machine.
+Context-aware AI translation for **Telegram Web and WhatsApp Web**, running entirely on your own machine.
 
 LinguaBridge is a Manifest V3 Chrome extension plus a small FastAPI backend. Incoming
 messages get a subtle translate badge; clicking one sends that message — together with the
@@ -10,8 +10,8 @@ translation and how long it took.
 Nothing is translated automatically. Nothing leaves your computer.
 
 ```
-Telegram Web  ──click──▶  content script  ──▶  service worker  ──HTTP──▶  FastAPI  ──▶  Ollama
-   (WebA/WebK)              (badge + panel)        (host permission)      127.0.0.1:8787
+Telegram / WhatsApp Web  ──click──▶  content script  ──▶  service worker  ──HTTP──▶  FastAPI  ──▶  Ollama
+   (WebA/WebK/WA)                     (badge + panel)        (host permission)      127.0.0.1:8787
 ```
 
 ## Features
@@ -30,8 +30,11 @@ Telegram Web  ──click──▶  content script  ──▶  service worker  �
   Nothing else — no model name, tone tags or dialect labels.
 - **Standalone text translator.** A dedicated page translates any sentence or paragraph you
   type, up to 250 characters, so manual translations stay short and fast.
-- **Both Telegram clients.** Works on `web.telegram.org/a/` (WebA, React) and
-  `web.telegram.org/k/` (WebK).
+- **Telegram and WhatsApp.** Works on `web.telegram.org/a/` (WebA, React),
+  `web.telegram.org/k/` (WebK) and `web.whatsapp.com`.
+- **Independent on/off switches.** Enable or disable badges separately for Telegram and
+  WhatsApp from the popup. Turning one off does not affect the other, removes that site's
+  badges, and blocks its translation requests.
 - **Local-first.** No cloud LLM, no API keys, no analytics. The backend binds to
   `127.0.0.1` only.
 - **Resilient.** TTL cache, request de-duplication, automatic retry, rate limiting, and
@@ -96,22 +99,26 @@ LB_LLM_MODE=mock ./run.sh
 1. Open `chrome://extensions`.
 2. Enable **Developer mode**.
 3. **Load unpacked** → select the `frontend/` directory.
-4. Open <https://web.telegram.org/a/> or <https://web.telegram.org/k/> and reload the tab.
-5. Incoming messages now show a small badge.
+4. Open <https://web.telegram.org/a/>, <https://web.telegram.org/k/> or
+   <https://web.whatsapp.com/> and reload the tab.
+5. Incoming messages now show a small badge (provided that platform is enabled in the
+   popup).
 
 On first install the extension opens its settings page and asks **which language you
 want to read in**. Pick it there (or click the toolbar icon anytime); the choice is
 global and saved immediately, not per message.
 
 The popup (toolbar icon) asks which language you want to read in using a searchable
-combobox over an alphabetical list, lets you change the context window (3/4/5), and tests
-the backend connection with a plain “connected” or “couldn't connect” result. **Test
-connection** never shows the endpoint or model name.
+combobox over an alphabetical list, has separate **Telegram** and **WhatsApp** on/off
+switches, lets you change the context window (3/4/5), and tests the backend connection
+with a plain “connected” or “couldn't connect” result. **Test connection** never shows the
+endpoint or model name. Platform switches save immediately; the Save button is for the
+other settings.
 
 Click **Text translator** in the popup to open the standalone translator page. Type or
 paste up to 250 characters, pick a target language, and press **Translate** (or
 `Ctrl`/`Cmd`+`Enter`). The result appears below with its response time. The translator
-works even when Telegram badges are switched off.
+works even when both platform badge switches are off.
 
 ## Usage
 
@@ -123,8 +130,8 @@ works even when Telegram badges are switched off.
 | Edited message | Badge is refreshed and the stale translation discarded |
 | Switching chats | Badges re-render; cache keys are scoped per chat |
 
-Badges appear only on **incoming** text messages. Emoji-only, sticker, media-only and
-service messages are skipped. A **green** badge means "ready to translate"; it turns
+Badges appear only on **incoming** text messages on every enabled platform. Emoji-only,
+sticker, media-only and service messages are skipped. A **green** badge means "ready to translate"; it turns
 **blue** once that message has been translated, shows a spinner while waiting, and turns
 red with a retry panel on error.
 
@@ -147,7 +154,8 @@ Backend settings are environment variables prefixed with `LB_` (see
 | `LB_HOST` / `LB_PORT` | `127.0.0.1` / `8787` | Bind address |
 
 Extension settings live in `chrome.storage.sync` and are edited in the popup:
-`enabled`, `targetLanguage`, `contextTurns` (plus a one-time `onboardingDone` flag). The
+`telegramEnabled`, `whatsappEnabled`, `targetLanguage`, `contextTurns` (plus a one-time
+`onboardingDone` flag). A legacy `enabled` value is migrated to both platform switches. The
 backend URL defaults to `http://127.0.0.1:8787` and is no longer shown in the popup; host
 permissions cover every loopback port. If you change `LB_PORT`, set the new URL from the
 service-worker console (`chrome://extensions` → LinguaBridge → **service worker**):
@@ -218,13 +226,14 @@ Interactive docs: <http://127.0.0.1:8787/docs>.
 - Input is sanitised (control/bidi characters stripped) and bounded. A random nonce
   delimits untrusted message and history blocks, and the system prompt instructs the model
   to treat them strictly as data.
-- CORS is restricted to the extension origin, `web.telegram.org`, and loopback.
+- CORS is restricted to the extension origin, `web.telegram.org`,
+  `web.whatsapp.com`, and loopback.
 - The backend must stay bound to loopback. Do not expose port 8787.
 
 ## Development
 
 ```bash
-# backend tests (48 tests)
+# backend tests (57 tests)
 cd backend && .venv/bin/python -m pytest -q
 
 # JS syntax
@@ -236,22 +245,22 @@ python3 scripts/make_icons.py
 
 ### DOM harness
 
-Deterministic fixture pages stand in for both Telegram clients:
+Deterministic fixture pages stand in for both Telegram clients and WhatsApp Web:
 
 ```bash
 python3 -m http.server 8788 --directory frontend/debug
 ```
 
-Open `http://127.0.0.1:8788/harness-a.html` or `harness-k.html` with the extension loaded.
-Content-script match patterns cannot contain ports, so the manifest uses
-`http://127.0.0.1/*` matches narrowed by `include_globs` to port `8788`.
+Open `http://127.0.0.1:8788/harness-a.html`, `harness-k.html` or `harness-wa.html` with
+the extension loaded. Content-script match patterns cannot contain ports, so the manifest
+uses `http://127.0.0.1/*` matches narrowed by `include_globs` to port `8788`.
 
 ### End-to-end smoke test
 
 `scripts/e2e-harness.mjs` drives a real Chrome over CDP and asserts badge injection,
 incoming-only behaviour, bubble positioning, panel rendering, the time line and theming on
-both
-harness pages.
+the WebA, WebK and WhatsApp harness pages. WhatsApp checks also verify that quoted reply
+text is excluded from the translated body.
 
 ```bash
 # prerequisites: harness server on :8788, backend on :8787, Chrome with CDP on :9222
@@ -265,7 +274,7 @@ node scripts/e2e-harness.mjs
 ### Packaging
 
 ```bash
-make package   # -> dist/linguabridge-extension-0.1.0.zip (debug pages excluded)
+make package   # -> dist/linguabridge-extension-0.2.0.zip (debug pages excluded)
 ```
 
 ## Project layout
@@ -281,8 +290,8 @@ frontend/
   content.js      observation, badge lifecycle, click handling
   background.js   HTTP, retry, dedupe, cache
   styles.css      shadow-DOM component styles
-  lib/            adapter registry, UI, context window, sanitising, messaging,
-                  shared language catalogue
+  lib/            adapter registry + WebA/WebK/WhatsApp selector maps, UI,
+                  context window, sanitising, messaging, shared language catalogue
   popup/          settings UI
   translator/     standalone 250-character translator page
   debug/          local DOM fixtures (not packaged)
@@ -300,7 +309,7 @@ scripts/
 
 | Symptom | Fix |
 | ------- | --- |
-| No badges | Reload the Telegram tab after loading the extension. Confirm the URL is `/a/` or `/k/`. |
+| No badges | Reload the Telegram/WhatsApp tab after loading the extension. Confirm the URL is `web.telegram.org/a/`, `web.telegram.org/k/` or `web.whatsapp.com`, and that the platform switch is on in the popup. |
 | "Backend is up, but Ollama is not reachable" | Start Ollama (`ollama serve`) and re-test from the popup. |
 | "model is not pulled" | `ollama pull <model>` matching `LB_OLLAMA_MODEL`. |
 | First click is slow | Cold model load. Increase `LB_OLLAMA_TIMEOUT_S` or send one warm-up request. |

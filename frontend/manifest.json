@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "LinguaBridge — Contextual AI Translation for Telegram Web",
+  "name": "LinguaBridge — Contextual AI Translation for Telegram & WhatsApp Web",
   "short_name": "LinguaBridge",
-  "version": "0.1.0",
-  "description": "Opt-in, context-aware AI translation for Telegram Web, plus a standalone 250-character text translator. Runs on your local model.",
+  "version": "0.2.0",
+  "description": "Opt-in, context-aware AI translation for Telegram Web and WhatsApp Web, plus a standalone 250-character text translator. Runs on your local model.",
   "minimum_chrome_version": "116",
   "permissions": ["storage"],
   "host_permissions": [
@@ -33,11 +33,13 @@
     {
       "matches": [
         "https://web.telegram.org/*",
+        "https://web.whatsapp.com/*",
         "http://127.0.0.1/*",
         "http://localhost/*"
       ],
       "include_globs": [
         "https://web.telegram.org/*",
+        "https://web.whatsapp.com/*",
         "http://127.0.0.1:8788/*",
         "http://localhost:8788/*"
       ],
@@ -45,6 +47,7 @@
         "lib/sanitize.js",
         "lib/adapter-k.js",
         "lib/adapter-a.js",
+        "lib/adapter-wa.js",
         "lib/adapter-registry.js",
         "lib/context-window.js",
         "lib/ui.js",
@@ -61,6 +64,7 @@
       "resources": ["styles.css"],
       "matches": [
         "https://web.telegram.org/*",
+        "https://web.whatsapp.com/*",
         "http://127.0.0.1/*",
         "http://localhost/*"
       ]

@@ -6,7 +6,8 @@
  */
 (() => {
   const DEFAULT_SETTINGS = {
-    enabled: true,
+    telegramEnabled: true,
+    whatsappEnabled: true,
     targetLanguage: "en",
     contextTurns: 5,
     backendUrl: "http://127.0.0.1:8787"
@@ -19,8 +20,20 @@
   const inflight = new Map();
 
   function normalizeSettings(raw) {
-    const value = { ...DEFAULT_SETTINGS, ...(raw || {}) };
-    value.enabled = value.enabled !== false;
+    const source = raw || {};
+    // Before per-site toggles there was one global `enabled` flag. Migrate it
+    // to both sites unless the user already has an explicit per-site value.
+    const legacyEnabled = source.enabled !== false;
+    const value = { ...DEFAULT_SETTINGS, ...source };
+    value.telegramEnabled =
+      typeof source.telegramEnabled === "boolean"
+        ? source.telegramEnabled
+        : legacyEnabled;
+    value.whatsappEnabled =
+      typeof source.whatsappEnabled === "boolean"
+        ? source.whatsappEnabled
+        : legacyEnabled;
+    delete value.enabled;
     value.targetLanguage =
       typeof value.targetLanguage === "string" && value.targetLanguage.trim()
         ? value.targetLanguage.trim().slice(0, 40)
@@ -50,15 +63,35 @@
   }
 
   async function getSettings() {
-    const stored = await chrome.storage.sync.get(DEFAULT_SETTINGS);
-    return normalizeSettings(stored);
+    const stored = await chrome.storage.sync.get(null);
+    const settings = normalizeSettings(stored);
+    const patch = {};
+    if (typeof stored.telegramEnabled !== "boolean") {
+      patch.telegramEnabled = settings.telegramEnabled;
+    }
+    if (typeof stored.whatsappEnabled !== "boolean") {
+      patch.whatsappEnabled = settings.whatsappEnabled;
+    }
+    if (Object.keys(patch).length) {
+      try {
+        await chrome.storage.sync.set(patch);
+      } catch (_error) {
+        // Keep serving normalised in-memory values even if persistence fails.
+      }
+    }
+    return settings;
   }
 
   async function seedDefaults() {
     const stored = await chrome.storage.sync.get(null);
+    const legacyEnabled = stored.enabled !== false;
     const missing = {};
     for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
-      if (!(key in stored)) missing[key] = value;
+      if (key in stored) continue;
+      missing[key] =
+        key === "telegramEnabled" || key === "whatsappEnabled"
+          ? legacyEnabled
+          : value;
     }
     if (Object.keys(missing).length) await chrome.storage.sync.set(missing);
   }
@@ -269,11 +302,35 @@
     return first;
   }
 
+  function platformFromSender(sender) {
+    try {
+      const url = new URL(sender && sender.url ? sender.url : "");
+      if (/(^|\.)whatsapp\.com$/i.test(url.hostname)) return "whatsapp";
+      if (/(^|\.)telegram\.org$/i.test(url.hostname)) return "telegram";
+    } catch (_error) {
+      // No sender URL (popup/extension page): fall back to the payload hint.
+    }
+    return "";
+  }
+
   async function handleTranslate(payload, options = {}) {
-    const { ignoreEnabled = false, maxMessageChars = 0 } = options;
+    const { ignoreEnabled = false, maxMessageChars = 0, platformHint = "" } = options;
     const settings = await getSettings();
-    if (!ignoreEnabled && !settings.enabled) {
-      return { ok: false, error: { code: "disabled", message: "LinguaBridge is turned off." } };
+    const platform =
+      platformHint || (payload && payload.platform === "whatsapp" ? "whatsapp" : "telegram");
+    const platformOn =
+      platform === "whatsapp" ? settings.whatsappEnabled : settings.telegramEnabled;
+    if (!ignoreEnabled && !platformOn) {
+      return {
+        ok: false,
+        error: {
+          code: "disabled",
+          message:
+            platform === "whatsapp"
+              ? "LinguaBridge is turned off for WhatsApp Web."
+              : "LinguaBridge is turned off for Telegram Web."
+        }
+      };
     }
 
     const built = buildBody(payload, maxMessageChars);
@@ -382,16 +439,21 @@
     seedDefaults();
   });
 
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (!message || typeof message.type !== "string") return undefined;
 
     if (message.type === "LB_TRANSLATE") {
-      respond(handleTranslate(message.payload), sendResponse);
+      respond(
+        handleTranslate(message.payload, {
+          platformHint: platformFromSender(sender)
+        }),
+        sendResponse
+      );
       return true;
     }
     if (message.type === "LB_TRANSLATE_TEXT") {
-      // The standalone translator works even when Telegram badges are off,
-      // and enforces a short input so the backend never receives a long text.
+      // The standalone translator works even when both platform switches are
+      // off, and enforces a short input so the backend never receives a long text.
       respond(
         handleTranslate(message.payload, { ignoreEnabled: true, maxMessageChars: 250 }),
         sendResponse

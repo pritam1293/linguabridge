@@ -8,6 +8,7 @@
   LB.adapterConfigs.a = {
     name: "a",
     label: "Telegram WebA",
+    platform: "telegram",
     rootSelectors: [
       "#MiddleColumn .messages-container",
       "#MiddleColumn .MessageList",

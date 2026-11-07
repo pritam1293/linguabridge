@@ -11,6 +11,7 @@
   LB.adapterConfigs.k = {
     name: "k",
     label: "Telegram WebK",
+    platform: "telegram",
     rootSelectors: [
       "#column-center .chat-container",
       "#column-center",

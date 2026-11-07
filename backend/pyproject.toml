@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "linguabridge-backend"
-version = "0.1.0"
-description = "Local contextual translation service for the LinguaBridge Telegram Web extension"
+version = "0.2.0"
+description = "Local contextual translation service for the LinguaBridge Telegram and WhatsApp Web extension"
 requires-python = ">=3.10"
 dependencies = [
   "fastapi>=0.115",

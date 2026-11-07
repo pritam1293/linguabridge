@@ -5,10 +5,10 @@ LinguaBridge is two cooperating processes and one message contract.
 ```
  ┌────────────────────────────── Browser ──────────────────────────────┐
  │                                                                    │
- │  Telegram Web page                                                 │
+ │  Telegram / WhatsApp Web page                                    │
  │  ┌───────────────────────────────────────────────┐                 │
  │  │ content script (isolated world)               │                 │
- │  │  • adapter detects WebA/WebK                  │                 │
+ │  │  • adapter detects WebA/WebK/WhatsApp         │                 │
  │  │  • MutationObserver + 5s safety sweep         │                 │
  │  │  • injects shadow-DOM badges / panels         │                 │
  │  │  • builds the 3–5 turn context window          │                 │
@@ -36,8 +36,9 @@ LinguaBridge is two cooperating processes and one message contract.
 ## Why the service worker does the HTTP
 
 Content scripts inherit the page's origin and CORS rules. A fetch from a content script to
-`http://127.0.0.1:8787` would be a cross-origin request from `web.telegram.org`, which
-Telegram's CSP or the browser can block. The extension service worker has
+`http://127.0.0.1:8787` would be a cross-origin request from `web.telegram.org` or
+`web.whatsapp.com`, which their CSP or the browser can block. The extension service worker
+has
 `host_permissions` for loopback and can fetch freely; the content script only exchanges
 messages with it.
 
@@ -45,12 +46,17 @@ messages with it.
 
 ### Adapter detection
 
-`lib/adapter-a.js` and `lib/adapter-k.js` are **data only** (selector maps).
-`lib/adapter-registry.js` builds one adapter interface and decides which client it is:
+`lib/adapter-a.js`, `lib/adapter-k.js` and `lib/adapter-wa.js` are **data only**
+(selector maps). `lib/adapter-registry.js` builds one adapter interface and decides which
+client it is:
 
 1. `body[data-lb-client]` / `html[data-lb-client]` override (used by the harness pages).
-2. URL path: `/a/…` → WebA, `/k/…` → WebK.
-3. DOM sniffing as a last resort.
+2. Hostname: `web.whatsapp.com` → WhatsApp.
+3. URL path: `/a/…` → WebA, `/k/…` → WebK.
+4. DOM sniffing as a last resort.
+
+Each adapter also declares its `platform` (`telegram` or `whatsapp`), which is attached to
+translation requests so the service worker can enforce the matching popup switch.
 
 The adapter exposes `getRoot`, `getMessages`, `getMessageId`, `getMessageText`,
 `getBubble`, `getSenderName`, `isOutgoing`, `getChatType`, `findOwner`. All callers are
@@ -94,9 +100,9 @@ The result is `{ history, chat_type, target_text }`.
 ### UI
 
 `lib/ui.js` creates a `div` host with an **open shadow root** and loads `styles.css` into
-it via `chrome.runtime.getURL`. Shadow DOM isolates the badge and panel from Telegram's CSS
-(`all: initial` on the host, explicit component styles inside). The document-level copy of
-`styles.css` only positions the hosts.
+it via `chrome.runtime.getURL`. Shadow DOM isolates the badge and panel from Telegram's or
+WhatsApp's CSS (`all: initial` on the host, explicit component styles inside). The
+document-level copy of `styles.css` only positions the hosts.
 
 All model-provided strings (`translated_text`, `detected_tone`, `cultural_note`, source
 language) are written with `textContent`, never `innerHTML`. The only `innerHTML` use is
@@ -113,8 +119,8 @@ Clicking the badge while a panel is open closes it.
 the language catalogue with the popup (`lib/languages.js`) and sends
 `LB_TRANSLATE_TEXT` to the service worker. Input is capped at **250 characters** in the
 textarea, checked again in `background.js`, so the backend never receives a long manual
-translation. Unlike Telegram badges, the page works while `enabled` is off. The result
-shows only the translation and its response time.
+translation. Unlike the platform badges, the page works while both `telegramEnabled` and
+`whatsappEnabled` are off. The result shows only the translation and its response time.
 
 ### Theme
 
@@ -126,15 +132,18 @@ host, and `:host(.lb-dark)` rules style the components.
 
 Responsibilities:
 
-- read/normalise `chrome.storage.sync` settings,
+- read/normalise `chrome.storage.sync` settings, including independent
+  `telegramEnabled` / `whatsappEnabled` switches (legacy `enabled` migrates to both),
 - validate payload shape and clamp lengths (message 8000, history 8 entries / 2000 chars),
+- reject badge requests when the sender's platform switch is off (the platform is derived
+  from the sender URL, not trusted solely from the payload),
 - return cached results immediately (`chrome.storage.session`, 1 hour TTL, LRU-ish eviction),
 - de-duplicate concurrent identical requests via an in-flight map,
 - `POST /v1/translate`, with one retry after 600 ms for transport/5xx errors,
 - a 90 s abort timeout,
 - `LB_PING` for the popup connection test (`/health/deep`, 5 s timeout); the popup shows
   only a friendly connected / not-connected message, never the URL or model,
-- `LB_TRANSLATE_TEXT` for the standalone translator, ignoring the Telegram `enabled` flag
+- `LB_TRANSLATE_TEXT` for the standalone translator, ignoring the platform switches
   and enforcing a 250-character input limit.
 
 Errors are normalised to `{ ok: false, error: { code, message, ... } }` for the content

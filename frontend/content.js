@@ -5,16 +5,24 @@
 
   const adapter = LB.registry.detect();
   if (!adapter) {
-    console.info("[LinguaBridge] Telegram message list not detected; idle.");
+    console.info("[LinguaBridge] Chat message list not detected; idle.");
     return;
   }
 
+  const platform = adapter.platform === "whatsapp" ? "whatsapp" : "telegram";
   const DEFAULT_SETTINGS = {
-    enabled: true,
+    telegramEnabled: true,
+    whatsappEnabled: true,
     targetLanguage: "en",
     contextTurns: 5,
     backendUrl: "http://127.0.0.1:8787"
   };
+
+  function platformEnabled() {
+    return platform === "whatsapp"
+      ? settings.whatsappEnabled !== false
+      : settings.telegramEnabled !== false;
+  }
 
   let settings = { ...DEFAULT_SETTINGS };
   let enabled = true;
@@ -105,6 +113,9 @@
         { textHash, messageId },
         () => activate(element, bubble, badge)
       );
+      if (platform === "whatsapp") {
+        badge.host.classList.add("lb-badge-host--whatsapp");
+      }
 
       const cached = translationCache.get(cacheKey(messageId, textHash));
       if (cached) {
@@ -151,7 +162,8 @@
       target_language: settings.targetLanguage,
       source_language: "auto",
       chat_type: context.chat_type,
-      message_id: messageId
+      message_id: messageId,
+      platform
     };
 
     LB.ui.setBadgeState(badge, "loading");
@@ -161,6 +173,8 @@
     // Cache before the detached-row check: virtualised message rows often
     // detach mid-request, and the result should survive the re-render.
     if (ok) remember(key, response.data);
+    // Permission may have been turned off while the request was in flight.
+    if (!enabled) return;
     if (!bubble.isConnected) return;
 
     if (ok) {
@@ -217,7 +231,7 @@
     if (response && response.ok && response.data) {
       settings = { ...DEFAULT_SETTINGS, ...response.data };
     }
-    enabled = settings.enabled !== false;
+    enabled = platformEnabled();
   }
 
   async function boot() {

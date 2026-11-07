@@ -25,6 +25,13 @@
   contain: layout style;
 }
 
+/* WhatsApp clips negative offsets in its message rows, so keep the badge
+ * inside the bubble there. */
+.lb-badge-host--whatsapp {
+  top: 4px !important;
+  inset-inline-end: 4px !important;
+}
+
 .lb-panel-host {
   all: initial !important;
   display: block !important;
@@ -51,6 +58,11 @@
   display: block;
   z-index: 12;
   direction: ltr;
+}
+
+:host(.lb-badge-host.lb-badge-host--whatsapp) {
+  top: 4px;
+  inset-inline-end: 4px;
 }
 
 :host(.lb-panel-host) {

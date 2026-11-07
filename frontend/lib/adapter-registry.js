@@ -1,13 +1,13 @@
-/* Telegram DOM adapter.
+/* Chat DOM adapter (Telegram WebA/WebK and WhatsApp Web).
  *
- * The two Telegram clients share almost nothing structurally, but both expose
- * `[data-mid]` on message rows. This module provides one interface and keeps
- * every selector-specific decision inside the per-client config files.
+ * Each client has different markup, but this module provides one interface
+ * and keeps every selector-specific decision inside the per-client config
+ * files.
  *
  * Interface:
  *   getRoot()            scroll/message container (re-resolved on every call)
  *   getMessages()        visible message owners in document order
- *   getMessageId(el)     Telegram message id, when available
+ *   getMessageId(el)     platform message id, when available
  *   getMessageText(el)   text/caption only (no timestamps, sender names, quotes)
  *   getBubble(el)        element that visually wraps the message
  *   getSenderName(el)    group sender name, or ""
@@ -33,6 +33,8 @@
   }
 
   function buildAdapter(config) {
+    const idAttribute = config.messageIdAttribute || "data-mid";
+
     function getRoot() {
       let fallback = null;
       for (const selector of config.rootSelectors) {
@@ -66,7 +68,7 @@
       const seen = new Set();
       const result = [];
       for (const node of outermost) {
-        const id = node.getAttribute("data-mid");
+        const id = node.getAttribute(idAttribute);
         if (id) {
           if (seen.has(id)) continue;
           seen.add(id);
@@ -78,21 +80,52 @@
 
     function getMessageId(element) {
       if (!element) return "";
-      const owner = element.closest(config.messageSelector);
-      return (owner && owner.getAttribute("data-mid")) || element.getAttribute("data-mid") || "";
+      const owner = element.closest(config.messageSelector) || element;
+      // Message containers can wrap the element that actually carries the id.
+      const carrier =
+        (owner.hasAttribute && owner.hasAttribute(idAttribute) && owner) ||
+        (owner.querySelector && owner.querySelector(`[${idAttribute}]`)) ||
+        owner;
+      return (
+        (carrier && carrier.getAttribute && carrier.getAttribute(idAttribute)) ||
+        element.getAttribute(idAttribute) ||
+        ""
+      );
+    }
+
+    function isExcludedTextNode(node) {
+      const selectors = config.textExcludeSelectors || [];
+      for (const selector of selectors) {
+        try {
+          if (node.closest(selector)) return true;
+        } catch (_error) {
+          // Ignore invalid optional selector.
+        }
+      }
+      return false;
     }
 
     function getMessageText(element) {
       if (!element) return "";
       const candidates = [];
       for (const selector of config.textSelectors) {
-        let node = null;
+        let nodes = [];
         try {
-          node = element.matches(selector) ? element : element.querySelector(selector);
+          nodes = Array.from(element.querySelectorAll(selector));
+          if (element.matches(selector)) nodes.unshift(element);
         } catch (_error) {
-          node = null;
+          nodes = [];
         }
-        if (node) candidates.push(stripCloneText(node, config));
+        // Configs with quote/reply exclusions need to inspect every candidate
+        // (WhatsApp puts the quoted text in a separate selectable span).
+        if (config.textExcludeSelectors) {
+          for (const node of nodes) {
+            if (isExcludedTextNode(node)) continue;
+            candidates.push(stripCloneText(node, config));
+          }
+        } else if (nodes[0]) {
+          candidates.push(stripCloneText(nodes[0], config));
+        }
       }
       candidates.push(stripCloneText(element, config));
       let best = "";
@@ -121,6 +154,10 @@
         }
         for (const attribute of config.outgoingAttributes) {
           if (current.hasAttribute(attribute)) return true;
+        }
+        if (config.outgoingIdPrefix) {
+          const id = current.getAttribute(idAttribute) || "";
+          if (id.startsWith(config.outgoingIdPrefix)) return true;
         }
         current = current.parentElement;
         depth += 1;
@@ -161,19 +198,48 @@
           if (name) return name;
         }
       }
+
+      // WhatsApp keeps the sender in data-pre-plain-text instead of a node.
+      if (config.senderAttribute) {
+        const attr = `[${config.senderAttribute}]`;
+        let node = null;
+        try {
+          node = element.matches(attr) ? element : element.querySelector(attr);
+        } catch (_error) {
+          node = null;
+        }
+        const raw = node ? node.getAttribute(config.senderAttribute) || "" : "";
+        const match = raw.match(/\]\s*([^:]+):\s*$/);
+        if (match) {
+          const name = LB.sanitize
+            .clean(match[1], { maxChars: 32, keepNewlines: false })
+            .trim();
+          if (name) return name;
+        }
+      }
       return "";
     }
 
-    function getChatType() {
-      const messages = getMessages().slice(-20);
-      let incoming = 0;
-      let named = 0;
-      for (const message of messages) {
-        if (isOutgoing(message)) continue;
-        incoming += 1;
-        if (getSenderName(message)) named += 1;
+    function hasGroupMarker() {
+      for (const selector of config.groupSelectors || []) {
+        try {
+          if (document.querySelector(selector)) return true;
+        } catch (_error) {
+          // Ignore invalid optional selector.
+        }
       }
-      return incoming >= 2 && named >= Math.min(2, incoming) ? "group" : "private";
+      return false;
+    }
+
+    function getChatType() {
+      if (hasGroupMarker()) return "group";
+      const senders = new Set();
+      for (const message of getMessages().slice(-20)) {
+        if (isOutgoing(message)) continue;
+        const name = getSenderName(message);
+        if (name) senders.add(name);
+      }
+      return senders.size >= 2 ? "group" : "private";
     }
 
     function findOwner(node) {
@@ -184,6 +250,7 @@
     return {
       name: config.name,
       label: config.label,
+      platform: config.platform || "telegram",
       getRoot,
       getMessages,
       getMessageId,
@@ -203,8 +270,13 @@
         document.documentElement.dataset &&
         document.documentElement.dataset.lbClient);
 
-    if ((forced === "a" || forced === "k") && configs[forced]) {
+    if ((forced === "a" || forced === "k" || forced === "wa") && configs[forced]) {
       return buildAdapter(configs[forced]);
+    }
+
+    const host = window.location.hostname;
+    if (/(^|\.)whatsapp\.com$/i.test(host) && configs.wa) {
+      return buildAdapter(configs.wa);
     }
 
     const path = window.location.pathname;
@@ -212,6 +284,9 @@
     if (path.startsWith("/a") && configs.a) return buildAdapter(configs.a);
 
     // Last resort: inspect the DOM (useful for locally saved pages).
+    if (document.querySelector("#main [data-id], #main .message-in, #main .message-out")) {
+      return configs.wa ? buildAdapter(configs.wa) : null;
+    }
     if (document.querySelector(".Message[data-mid], .MessageList")) {
       return configs.a ? buildAdapter(configs.a) : null;
     }

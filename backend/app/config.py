@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     allowed_origin_regex: str = (
         r"^(chrome-extension://[a-p]{32}"
         r"|https://web\.telegram\.org"
+        r"|https://web\.whatsapp\.com"
         r"|http://localhost(:\d+)?"
         r"|http://127\.0\.0\.1(:\d+)?"
         r"|null)$"

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LinguaBridge harness — WhatsApp Web</title>
+    <style>
+      :root { color-scheme: light; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: #efeae2;
+        color: #111b21;
+        font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+      .banner {
+        padding: 10px 16px;
+        background: #1f2c33;
+        color: #e9edef;
+        font-size: 12px;
+      }
+      .banner strong { color: #fff; }
+      #main {
+        max-width: 620px;
+        margin: 20px auto 80px;
+        background: #efeae2;
+        border-radius: 12px;
+        padding: 12px 0;
+        min-height: 70vh;
+      }
+      [role="application"] {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 0 14px;
+      }
+      [role="row"] { display: flex; }
+      .message-in,
+      .message-out {
+        display: flex;
+        width: 100%;
+        padding: 1px 0;
+      }
+      .message-in { justify-content: flex-start; }
+      .message-out { justify-content: flex-end; }
+      .copyable-text {
+        max-width: 78%;
+        background: #ffffff;
+        border-radius: 8px;
+        padding: 6px 9px 5px;
+        box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
+        position: relative;
+      }
+      .message-out .copyable-text { background: #d9fdd3; }
+      .sender { font-size: 12px; font-weight: 600; color: #008069; margin-bottom: 2px; }
+      .selectable-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+      .quoted {
+        border-inline-start: 3px solid #25d366;
+        padding: 2px 6px;
+        margin-bottom: 4px;
+        color: #667781;
+        font-size: 12px;
+        border-radius: 4px;
+        background: rgba(0, 0, 0, 0.04);
+      }
+      .message-time { display: block; text-align: end; margin-top: 2px; font-size: 10px; color: #667781; }
+    </style>
+  </head>
+  <body data-lb-client="wa">
+    <div class="banner">
+      <strong>LinguaBridge harness — WhatsApp Web shape</strong> · badges should appear on
+      incoming messages only · quotes and timestamps must not leak into the translation.
+    </div>
+
+    <div id="main">
+      <div role="application" data-testid="conversation-panel-messages">
+        <div role="row">
+          <div class="message-in" data-id="false_1234567890@c.us_WA1">
+            <div class="copyable-text" data-pre-plain-text="[21:01, 07/11/2026] Ana: ">
+              <span class="selectable-text copyable-text" dir="ltr">¿Vienes a la fiesta esta noche?</span>
+              <span class="message-time">21:01</span>
+            </div>
+          </div>
+        </div>
+
+        <div role="row">
+          <div class="message-out" data-id="true_1234567890@c.us_WA2">
+            <div class="copyable-text" data-pre-plain-text="[21:02, 07/11/2026] Me: ">
+              <span class="selectable-text copyable-text" dir="ltr">Depende, ¿va a estar tu hermano?</span>
+              <span class="message-time">21:02</span>
+            </div>
+          </div>
+        </div>
+
+        <div role="row">
+          <div class="message-in" data-id="false_1234567890@c.us_WA3">
+            <div class="copyable-text" data-pre-plain-text="[21:03, 07/11/2026] Ana: ">
+              <div class="sender">Ana</div>
+              <span class="selectable-text copyable-text" dir="ltr">No mames, obvio que no. Se pone insoportable después de las dos cervezas 😂</span>
+              <span class="message-time">21:03</span>
+            </div>
+          </div>
+        </div>
+
+        <div role="row">
+          <div class="message-in" data-id="false_1234567890@c.us_WA4">
+            <div class="copyable-text" data-pre-plain-text="[21:05, 07/11/2026] Bruno: ">
+              <div class="sender">Bruno</div>
+              <div class="quoted" data-testid="quoted-message">
+                <span class="selectable-text copyable-text" dir="ltr">This quoted text must never be translated.</span>
+              </div>
+              <span class="selectable-text copyable-text" dir="ltr">Totalmente de acuerdo, mejor nos quedamos en casa.</span>
+              <span class="message-time">21:05</span>
+            </div>
+          </div>
+        </div>
+
+        <div role="row">
+          <div class="message-out" data-id="true_1234567890@c.us_WA5">
+            <div class="copyable-text" data-pre-plain-text="[21:06, 07/11/2026] Me: ">
+              <span class="selectable-text copyable-text" dir="ltr">Entonces aviso a los demás.</span>
+              <span class="message-time">21:06</span>
+            </div>
+          </div>
+        </div>
+
+        <div role="row">
+          <div class="message-in" data-id="false_1234567890@c.us_WA6">
+            <div class="copyable-text" data-pre-plain-text="[21:07, 07/11/2026] Bruno: ">
+              <div class="sender">Bruno</div>
+              <span class="selectable-text copyable-text" dir="ltr">😅😅😅</span>
+              <span class="message-time">21:07</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Current WhatsApp Web: bare message id and data-testid text node,
+             without the legacy selectable-text class. -->
+        <div role="row">
+          <div class="message-in" data-id="2A327AC82CD56D95E087">
+            <div class="copyable-text" data-pre-plain-text="[21:08, 07/11/2026] Ana: ">
+              <div class="sender">Ana</div>
+              <div data-testid="selectable-text" dir="auto">Perfecto, nos vemos mañana.</div>
+              <span class="message-time">21:08</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

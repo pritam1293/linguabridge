@@ -172,6 +172,66 @@ async function main() {
     "WebK panel shows the translation time and nothing else"
   );
 
+  console.log("WhatsApp harness");
+  await visit("harness-wa.html");
+  const badgesWa = await evaluate(`document.querySelectorAll('[data-lb-ui="badge"]').length`);
+  assert(badgesWa === 4, `4 incoming text messages get a badge (got ${badgesWa})`);
+  assert(
+    await evaluate(`!document.querySelector('[data-id="true_1234567890@c.us_WA2"] .lb-badge-host')`),
+    "outgoing WhatsApp message has no badge"
+  );
+  assert(
+    await evaluate(`!document.querySelector('[data-id="false_1234567890@c.us_WA6"] .lb-badge-host')`),
+    "emoji-only WhatsApp message has no badge"
+  );
+  assert(
+    await evaluate(
+      `getComputedStyle(document.querySelector('[data-id="false_1234567890@c.us_WA1"] .copyable-text')).position === 'relative'`
+    ),
+    "WhatsApp bubble is positioned for the absolute badge"
+  );
+
+  // A reply contains a quoted span before the real text. The quote must be
+  // excluded so only the message body is sent for translation.
+  await evaluate(
+    `document.querySelector('[data-id="false_1234567890@c.us_WA4"] .lb-badge-host').click(); true`
+  );
+  await waitFor(
+    `!!document.querySelector('[data-id="false_1234567890@c.us_WA4"] .lb-panel-host')?.shadowRoot?.querySelector('.lb-translation')`
+  );
+  const panelWa = await evaluate(
+    `document.querySelector('[data-id="false_1234567890@c.us_WA4"] .lb-panel-host').shadowRoot.querySelector('.lb-panel').textContent`
+  );
+  assert(panelWa.includes("[English]"), "WhatsApp panel renders the translation");
+  assert(
+    panelWa.includes("Totalmente de acuerdo"),
+    "WhatsApp reply translates the message body"
+  );
+  assert(
+    !panelWa.includes("This quoted text"),
+    "WhatsApp quoted reply text is excluded"
+  );
+
+  // Current WhatsApp Web drops the legacy selectable-text class and uses a
+  // bare message id. The adapter must still find and translate the text.
+  await evaluate(
+    `document.querySelector('[data-id="2A327AC82CD56D95E087"] .lb-badge-host').click(); true`
+  );
+  await waitFor(
+    `!!document.querySelector('[data-id="2A327AC82CD56D95E087"] .lb-panel-host')?.shadowRoot?.querySelector('.lb-translation')`
+  );
+  const panelCurrentWa = await evaluate(
+    `document.querySelector('[data-id="2A327AC82CD56D95E087"] .lb-panel-host').shadowRoot.querySelector('.lb-panel').textContent`
+  );
+  assert(
+    panelCurrentWa.includes("[English]") && panelCurrentWa.includes("nos vemos"),
+    "current WhatsApp markup is detected and translated"
+  );
+  assert(
+    !panelCurrentWa.includes("Ana"),
+    "current WhatsApp sender label is not translated"
+  );
+
   console.log("\nAll harness checks passed.");
   socket.close();
 }

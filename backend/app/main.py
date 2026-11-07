@@ -49,7 +49,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(
         title="LinguaBridge",
         version=__version__,
-        description="Local, context-aware translation service for the LinguaBridge Telegram Web extension.",
+        description="Local, context-aware translation service for the LinguaBridge Telegram and WhatsApp Web extension.",
         lifespan=lifespan,
     )
 

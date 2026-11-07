@@ -1,6 +1,7 @@
 (() => {
   const DEFAULTS = {
-    enabled: true,
+    telegramEnabled: true,
+    whatsappEnabled: true,
     targetLanguage: "en",
     contextTurns: 5,
     onboardingDone: false
@@ -150,14 +151,16 @@
   function readForm() {
     const turns = Number($("contextTurns").value);
     return {
-      enabled: $("enabled").checked,
+      telegramEnabled: $("telegramEnabled").checked,
+      whatsappEnabled: $("whatsappEnabled").checked,
       targetLanguage: selectedCode,
       contextTurns: Number.isFinite(turns) ? Math.min(5, Math.max(3, turns)) : 5
     };
   }
 
   function fillForm(settings) {
-    $("enabled").checked = settings.enabled !== false;
+    $("telegramEnabled").checked = settings.telegramEnabled !== false;
+    $("whatsappEnabled").checked = settings.whatsappEnabled !== false;
     selectedCode = settings.targetLanguage || DEFAULTS.targetLanguage;
     updateTrigger();
     renderLanguages("");
@@ -177,7 +180,18 @@
     }
     await chrome.storage.sync.set({ ...settings, onboardingDone: true });
     $("welcome").hidden = true;
-    setStatus("Saved. Open or refresh Telegram Web.", "ok");
+    setStatus("Saved. Open or refresh Telegram or WhatsApp Web.", "ok");
+    // The toolbar popup should dismiss after an explicit save. Extension pages
+    // opened in a tab simply ignore/allow this depending on the browser.
+    window.close();
+  }
+
+  async function savePlatformToggles() {
+    await chrome.storage.sync.set({
+      telegramEnabled: $("telegramEnabled").checked,
+      whatsappEnabled: $("whatsappEnabled").checked
+    });
+    setStatus("Saved. Open or refresh Telegram or WhatsApp Web.", "ok");
   }
 
   async function testConnection() {
@@ -226,8 +240,16 @@
   }
 
   async function init() {
-    const stored = await chrome.storage.sync.get(DEFAULTS);
-    fillForm({ ...DEFAULTS, ...stored });
+    const stored = await chrome.storage.sync.get(null);
+    const legacyEnabled = stored.enabled !== false;
+    const settings = { ...DEFAULTS, ...stored };
+    if (typeof stored.telegramEnabled !== "boolean") {
+      settings.telegramEnabled = legacyEnabled;
+    }
+    if (typeof stored.whatsappEnabled !== "boolean") {
+      settings.whatsappEnabled = legacyEnabled;
+    }
+    fillForm(settings);
 
     const isFirstRunPage = new URLSearchParams(location.search).get("welcome") === "1";
     if (isFirstRunPage) {
@@ -239,6 +261,8 @@
     $("save").addEventListener("click", save);
     $("test").addEventListener("click", testConnection);
     $("clearCache").addEventListener("click", clearCache);
+    $("telegramEnabled").addEventListener("change", savePlatformToggles);
+    $("whatsappEnabled").addEventListener("change", savePlatformToggles);
     $("openTranslator").addEventListener("click", () => {
       chrome.tabs.create({ url: chrome.runtime.getURL("translator/translator.html") });
       window.close();

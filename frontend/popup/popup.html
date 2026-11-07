@@ -11,7 +11,7 @@
       <img class="logo" src="../icons/icon-48.png" alt="" width="28" height="28" />
       <div>
         <h1>LinguaBridge</h1>
-        <p class="subtitle">Context-aware translation for Telegram Web</p>
+        <p class="subtitle">Context-aware translation for Telegram &amp; WhatsApp Web</p>
       </div>
     </header>
 
@@ -19,8 +19,8 @@
       <div id="welcome" class="welcome" hidden>
         <strong>Which language do you want to read in?</strong>
         <p>
-          Pick it below. Every translation will be shown in this language. You can change
-          it anytime from this popup.
+          Pick it below. Every translation in Telegram and WhatsApp will be shown in this
+          language. You can change it anytime from this popup.
         </p>
       </div>
 
@@ -62,24 +62,36 @@
         <small class="hint">Applies to all translated messages. Saved immediately.</small>
       </div>
 
-      <div class="settings-grid">
-        <label class="switch-row" for="enabled">
-          <span>
-            <strong>Enable LinguaBridge</strong>
-            <small>Badges on incoming messages</small>
-          </span>
-          <input id="enabled" type="checkbox" class="switch" />
-        </label>
+      <div class="field">
+        <span class="label">Where LinguaBridge runs</span>
+        <div class="settings-grid">
+          <label class="switch-row" for="telegramEnabled">
+            <span>
+              <strong>Telegram</strong>
+              <small>Badges on incoming messages</small>
+            </span>
+            <input id="telegramEnabled" type="checkbox" class="switch" />
+          </label>
 
-        <div class="field">
-          <label class="label" for="contextTurns">Context window</label>
-          <select id="contextTurns">
-            <option value="3">3 messages</option>
-            <option value="4">4 messages</option>
-            <option value="5">5 messages</option>
-          </select>
-          <small class="hint">Earlier messages sent with each request.</small>
+          <label class="switch-row" for="whatsappEnabled">
+            <span>
+              <strong>WhatsApp</strong>
+              <small>Badges on incoming messages</small>
+            </span>
+            <input id="whatsappEnabled" type="checkbox" class="switch" />
+          </label>
         </div>
+        <small class="hint">Turn each site on or off independently. Saved immediately.</small>
+      </div>
+
+      <div class="field">
+        <label class="label" for="contextTurns">Context window</label>
+        <select id="contextTurns">
+          <option value="3">3 messages</option>
+          <option value="4">4 messages</option>
+          <option value="5">5 messages</option>
+        </select>
+        <small class="hint">Earlier messages sent with each request.</small>
       </div>
 
       <div class="actions">
@@ -114,7 +126,7 @@
 
     <footer class="footer">
       <button id="clearCache" class="link" type="button">Clear translation cache</button>
-      <span class="version">v0.1.0</span>
+      <span class="version">v0.2.0</span>
     </footer>
 
     <script src="../lib/languages.js"></script>
