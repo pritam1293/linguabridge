@@ -1,74 +1,82 @@
 # LinguaBridge
 
-Context-aware AI translation for your chatting apps — currently Telegram Web and WhatsApp
-Web, running entirely on your own machine.
+**LinguaBridge - contextual AI translation for chatting apps.**
 
-LinguaBridge is a Manifest V3 Chrome extension plus a small FastAPI backend. Incoming
-messages get a subtle translate badge; clicking one sends that message — together with the
-few messages before it — to a **local Ollama model**. The model returns a natural
-translation and how long it took.
-
-Nothing is translated automatically. Nothing leaves your computer.
+A Manifest V3 Chrome extension plus a local FastAPI backend. Translates incoming Telegram Web and WhatsApp Web messages on click, using the preceding messages as context. Runs entirely on your machine — no cloud LLM, no API keys, no analytics.
 
 ```
-Telegram / WhatsApp Web  ──click──▶  content script  ──▶  service worker  ──HTTP──▶  FastAPI  ──▶  Ollama
-   (WebA/WebK/WA)                     (badge + panel)        (host permission)      127.0.0.1:8787
+Telegram / WhatsApp Web ──click badge──▶ content script ──▶ service worker ──HTTP──▶ FastAPI ──▶ Ollama
+   (WebA / WebK / WhatsApp)              (badge + panel)      (127.0.0.1:8787)                   127.0.0.1:11434
 ```
 
-## Features
+## What it does
 
-- **Opt-in only.** Every incoming text message gets a green badge. Translation starts when
-  you click it, never before.
-- **Incoming messages only.** Your own messages are intentionally left alone.
-- **Conversational context.** The previous 3–5 visible messages are sent with the target
-  message, speaker-labelled, so sarcasm, slang and pronouns resolve correctly.
-- **Hinglish and romanised Indic languages.** Hinglish, Tanglish, Benglish, Roman Urdu and
-  other Latin-script forms of Indian languages are understood and translated by meaning —
-  `"ye sab thik ho gaya hai"` becomes "It's all sorted out", not a word-by-word reading.
-- **Idioms handled, not mangled.** A matching idiom is used when one exists; otherwise the
-  meaning is translated with a short explanation in the target language.
-- **Minimal result.** The panel shows the translation and `Translated in X.Y seconds`.
-  Nothing else — no model name, tone tags or dialect labels.
-- **Standalone text translator.** A dedicated page translates any sentence or paragraph you
-  type, up to 250 characters, so manual translations stay short and fast.
-- **Telegram and WhatsApp.** Works on `web.telegram.org/a/` (WebA, React),
-  `web.telegram.org/k/` (WebK) and `web.whatsapp.com`.
-- **Independent on/off switches.** Enable or disable badges separately for Telegram and
-  WhatsApp from the popup. Turning one off does not affect the other, removes that site's
-  badges, and blocks its translation requests.
-- **Local-first.** No cloud LLM, no API keys, no analytics. The backend binds to
-  `127.0.0.1` only.
-- **Resilient.** TTL cache, request de-duplication, automatic retry, rate limiting, and
-  prompt-injection defences.
-- **Deterministic mock mode.** Develop the UI without pulling a model.
+- Adds a small badge to **incoming** messages only; translation starts when you click it.
+- Sends the clicked message plus the previous 3–5 visible messages for context.
+- Handles slang, idioms, Hinglish and other romanised Indic languages by meaning, not word-for-word.
+- Shows only the translation and `Translated in X.Y seconds`.
+- Has a standalone text translator page (up to 250 characters).
+- Separate on/off switches for Telegram and WhatsApp.
+- Everything stays on loopback: extension → `127.0.0.1:8787` → Ollama → `127.0.0.1:11434`.
+
+## Supported sites
+
+| Site | URL |
+| ---- | --- |
+| Telegram WebA | `https://web.telegram.org/a/` |
+| Telegram WebK | `https://web.telegram.org/k/` |
+| WhatsApp Web | `https://web.whatsapp.com/` |
+
+## Models
+
+| Item | Details |
+| ---- | ------- |
+| Default model | `qwen2.5:7b` (~4.7 GB download) |
+| Other options | `llama3.1:8b`, `gemma2:9b`, `mistral-nemo`, or any multilingual model you pull in Ollama |
+| Runtime | [Ollama](https://ollama.com) on `http://127.0.0.1:11434` |
+| Hardware | GPU optional; a 7–8B quantised model needs ~5–6 GB RAM/VRAM |
+| Mock mode | `LB_LLM_MODE=mock` — deterministic output, no model needed |
+
+Warm translations typically take 1–3 s; the first request may take longer while weights load.
+
+## Tech stack
+
+| Layer | Stack |
+| ----- | ----- |
+| Extension | Chrome Manifest V3, vanilla JavaScript, Shadow DOM, `chrome.storage.sync` |
+| Backend | Python 3.10+, FastAPI, Uvicorn, httpx, Pydantic v2, pydantic-settings |
+| LLM runtime | Ollama |
+| Tests / tooling | pytest, Node.js (`node --check`, CDP E2E), Make |
 
 ## Requirements
 
 | Component | Version |
 | --------- | ------- |
-| Chrome / Chromium | 116+ (Manifest V3, `chrome.storage.session`) |
+| Chrome / Chromium | 116+ |
 | Python | 3.10+ |
 | Ollama | any recent release |
+| Node.js | only for dev checks / E2E |
 
-A GPU is nice but not required. A 7–8B quantised model needs roughly 5–6 GB of RAM/VRAM.
-
-## Quick start
+## Setup
 
 ### 1. Ollama
 
 ```bash
-ollama serve            # usually already running as a service
-ollama pull qwen2.5:7b  # good multilingual quality/size trade-off
+ollama serve
+ollama pull qwen2.5:7b
 ```
 
-`llama3.1:8b`, `gemma2:9b`, `mistral-nemo` and similar multilingual models also work.
-Set the model in `backend/.env` (see [Configuration](#configuration)).
-
-`qwen2.5:7b` is a ~4.7 GB download and runs fully on GPU in about 4.8 GB of VRAM with a
-4k context. Warm translations typically take 1–3 s; the first request after the model
-unloads takes longer while the weights are read.
+Change the model with `LB_OLLAMA_MODEL` in `backend/.env`.
 
 ### 2. Backend
+
+```bash
+make setup     # creates backend/.venv and installs deps
+cp backend/.env.example backend/.env
+make backend   # http://127.0.0.1:8787
+```
+
+Manual equivalent:
 
 ```bash
 cd backend
@@ -79,6 +87,12 @@ cp .env.example .env
 ./run.sh
 ```
 
+Mock mode (no Ollama):
+
+```bash
+make backend-mock
+```
+
 Verify:
 
 ```bash
@@ -86,40 +100,13 @@ curl http://127.0.0.1:8787/health
 curl http://127.0.0.1:8787/health/deep
 ```
 
-`/health/deep` reports whether Ollama is reachable and whether the configured model is
-present.
-
-**No model yet?** Run in mock mode — same API, deterministic placeholder output:
-
-```bash
-LB_LLM_MODE=mock ./run.sh
-```
-
 ### 3. Extension
 
 1. Open `chrome://extensions`.
 2. Enable **Developer mode**.
-3. **Load unpacked** → select the `frontend/` directory.
-4. Open <https://web.telegram.org/a/>, <https://web.telegram.org/k/> or
-   <https://web.whatsapp.com/> and reload the tab.
-5. Incoming messages now show a small badge (provided that platform is enabled in the
-   popup).
-
-On first install the extension opens its settings page and asks **which language you
-want to read in**. Pick it there (or click the toolbar icon anytime); the choice is
-global and saved immediately, not per message.
-
-The popup (toolbar icon) asks which language you want to read in using a searchable
-combobox over an alphabetical list, has separate **Telegram** and **WhatsApp** on/off
-switches, lets you change the context window (3/4/5), and tests the backend connection
-with a plain “connected” or “couldn't connect” result. **Test connection** never shows the
-endpoint or model name. Platform switches save immediately; the Save button is for the
-other settings.
-
-Click **Text translator** in the popup to open the standalone translator page. Type or
-paste up to 250 characters, pick a target language, and press **Translate** (or
-`Ctrl`/`Cmd`+`Enter`). The result appears below with its response time. The translator
-works even when both platform badge switches are off.
+3. **Load unpacked** → select `frontend/`.
+4. Open Telegram Web or WhatsApp Web and reload the tab.
+5. On first install, pick the language you want to read in.
 
 ## Usage
 
@@ -127,22 +114,29 @@ works even when both platform badge switches are off.
 | ------ | ------ |
 | Click a message badge | Translates that message using the preceding turns |
 | Click again | Closes the panel |
-| Text translator (popup) | Opens the 250-character standalone translator |
-| Edited message | Badge is refreshed and the stale translation discarded |
-| Switching chats | Badges re-render; cache keys are scoped per chat |
+| Text translator (popup) | Opens the standalone 250-character translator |
+| Edited message | Badge refreshes; stale translation is discarded |
+| Switching chats | Badges re-render; cache is scoped per chat |
 
-Badges appear only on **incoming** text messages on every enabled platform. Emoji-only,
-sticker, media-only and service messages are skipped. On WhatsApp the badge is a flex sibling
-immediately to the **left** of the bubble, clear of WhatsApp's top-right action menu. On both
-Telegram clients it is absolutely positioned at the bubble's left edge, so frequent message
-re-renders never shift the text. A **green** badge means "ready to translate"; it turns
-**blue** once that message has been translated, shows a spinner while waiting, and turns
-red with a retry panel on error.
+Badges appear only on incoming text messages. Emoji-only, sticker, media-only and service messages are skipped. Green = ready, blue = translated, spinner = waiting, red = error with retry.
 
-## Configuration
+## Settings
 
-Backend settings are environment variables prefixed with `LB_` (see
-`backend/.env.example`). The most useful ones:
+### Extension (popup / toolbar icon)
+
+| Setting | Options |
+| ------- | ------- |
+| Read messages in | Target language (searchable list) |
+| Telegram | On / off — badges on incoming Telegram messages |
+| WhatsApp | On / off — badges on incoming WhatsApp messages |
+| Context window | 3, 4 or 5 previous messages |
+| Test connection | Checks the backend without showing endpoint or model |
+| Text translator | Opens the standalone translator page |
+| Clear translation cache | Clears cached translations |
+
+Platform switches save immediately; other settings use **Save**. Settings live in `chrome.storage.sync`.
+
+### Backend (`backend/.env`, all optional)
 
 | Variable | Default | Purpose |
 | -------- | ------- | ------- |
@@ -150,27 +144,24 @@ Backend settings are environment variables prefixed with `LB_` (see
 | `LB_OLLAMA_BASE_URL` | `http://127.0.0.1:11434` | Ollama endpoint |
 | `LB_OLLAMA_MODEL` | `qwen2.5:7b` | Any pulled model |
 | `LB_OLLAMA_TIMEOUT_S` | `90` | Cold-start allowance |
+| `LB_OLLAMA_NUM_CTX` | `4096` | Context size |
+| `LB_OLLAMA_KEEP_ALIVE` | `30m` | Model keep-alive |
 | `LB_TEMPERATURE` | `0.2` | Lower is more literal |
 | `LB_MAX_MESSAGE_CHARS` | `4000` | Per-message input cap |
 | `LB_MAX_HISTORY_MESSAGES` | `6` | Hard cap on context turns |
+| `LB_MAX_HISTORY_CHARS` | `3000` | History character cap |
 | `LB_RATE_LIMIT_PER_MINUTE` | `30` | Local request budget |
 | `LB_CACHE_TTL_S` | `3600` | Translation cache lifetime |
 | `LB_HOST` / `LB_PORT` | `127.0.0.1` / `8787` | Bind address |
+| `LB_LOG_LEVEL` | `INFO` | Log level |
 
-Extension settings live in `chrome.storage.sync` and are edited in the popup:
-`telegramEnabled`, `whatsappEnabled`, `targetLanguage`, `contextTurns` (plus a one-time
-`onboardingDone` flag). A legacy `enabled` value is migrated to both platform switches. The
-backend URL defaults to `http://127.0.0.1:8787` and is no longer shown in the popup; host
-permissions cover every loopback port. If you change `LB_PORT`, set the new URL from the
-service-worker console (`chrome://extensions` → LinguaBridge → **service worker**):
+The extension's backend URL defaults to `http://127.0.0.1:8787`. If you change `LB_PORT`, set it from the service-worker console (`chrome://extensions` → LinguaBridge → **service worker**):
 
 ```js
 chrome.storage.sync.set({ backendUrl: "http://127.0.0.1:9000" });
 ```
 
 ## API
-
-The backend exposes four endpoints:
 
 | Method | Path | Description |
 | ------ | ---- | ----------- |
@@ -179,151 +170,57 @@ The backend exposes four endpoints:
 | `GET` | `/v1/languages` | Supported language codes and names |
 | `POST` | `/v1/translate` | Translate one message with context |
 
-Request:
-
-```json
-{
-  "message": "No mames, obvio que no.",
-  "target_language": "en",
-  "source_language": "auto",
-  "chat_type": "private",
-  "history": [
-    { "role": "other", "speaker": "Ana", "text": "¿Vienes a la fiesta?" },
-    { "role": "self",  "speaker": "Me",  "text": "Depende, ¿va a estar tu hermano?" }
-  ],
-  "message_id": "1234"
-}
-```
-
-Response:
-
-```json
-{
-  "translated_text": "No way, obviously not.",
-  "detected_tone": "casual, emphatic",
-  "cultural_note": "\"No mames\" is a very informal Mexican expression of disbelief.",
-  "meta": {
-    "cached": false,
-    "passthrough": false,
-    "latency_ms": 812,
-    "model": "qwen2.5:7b",
-    "mode": "ollama",
-    "history_used": 2,
-    "source_language_detected": "Spanish"
-  }
-}
-```
-
-Errors use a stable envelope: `{"error": {"code": "...", "message": "..."}}` with
-`429`/`413`/`422`/`502`/`503`/`504` status codes.
-
 Interactive docs: <http://127.0.0.1:8787/docs>.
 
-## Privacy and safety
+## Privacy
 
-- Only messages you explicitly click are sent, plus the preceding visible turns.
-- Requests go to `127.0.0.1:8787`, which talks to Ollama on `127.0.0.1:11434`. Nothing is
-  forwarded to a cloud provider.
-- The backend does not log message content; logs contain counts, target language, mode and
-  latency.
+- Only messages you click are sent, plus the preceding visible turns.
+- All traffic stays on loopback: `127.0.0.1:8787` → Ollama `127.0.0.1:11434`.
+- Message content is not logged; logs contain counts, language, mode and latency.
 - Model output is inserted with `textContent`, never `innerHTML`.
-- Input is sanitised (control/bidi characters stripped) and bounded. A random nonce
-  delimits untrusted message and history blocks, and the system prompt instructs the model
-  to treat them strictly as data.
-- CORS is restricted to the extension origin, `web.telegram.org`,
-  `web.whatsapp.com`, and loopback.
-- The backend must stay bound to loopback. Do not expose port 8787.
+- Input is sanitised and bounded; a random nonce delimits untrusted message blocks and the prompt treats them as data.
+- CORS is restricted to the extension origin, `web.telegram.org`, `web.whatsapp.com` and loopback.
+- Do not expose port 8787.
 
 ## Development
 
 ```bash
-# backend tests (57 tests)
-cd backend && .venv/bin/python -m pytest -q
-
-# JS syntax
-node --check frontend/content.js
-
-# icons
-python3 scripts/make_icons.py
+make test      # backend pytest suite
+make check     # manifest, JS syntax, Python imports
+make icons     # regenerate extension icons
+make harness   # DOM fixtures on http://127.0.0.1:8788
+make e2e       # CDP browser smoke test (requires harness + backend + Chrome CDP on :9222)
+make package   # -> dist/linguabridge-extension-0.2.0.zip
+make clean
 ```
 
-### DOM harness
-
-Deterministic fixture pages stand in for both Telegram clients and WhatsApp Web:
+Branded Google Chrome ignores `--load-extension`; use Chrome for Testing or Chromium:
 
 ```bash
-python3 -m http.server 8788 --directory frontend/debug
-```
-
-Open `http://127.0.0.1:8788/harness-a.html`, `harness-k.html` or `harness-wa.html` with
-the extension loaded. Content-script match patterns cannot contain ports, so the manifest
-uses `http://127.0.0.1/*` matches narrowed by `include_globs` to port `8788`.
-
-### End-to-end smoke test
-
-`scripts/e2e-harness.mjs` drives a real Chrome over CDP and asserts badge injection,
-incoming-only behaviour, left-side badge placement (and that removing/re-adding a badge does
-not shift the message), panel rendering, the time line and theming on the WebA, WebK and
-WhatsApp harness pages. WhatsApp checks also verify that quoted reply text and timestamp
-spans (including generated-class timestamps) are excluded from the translated body.
-
-```bash
-# prerequisites: harness server on :8788, backend on :8787, Chrome with CDP on :9222
-node scripts/e2e-harness.mjs
-```
-
-> Branded Google Chrome ignores `--load-extension`. Use Chrome for Testing (or Chromium):
-> `npx @puppeteer/browsers install chrome@stable`, then launch with
-> `--disable-extensions-except=$PWD/frontend --load-extension=$PWD/frontend`.
-
-### Packaging
-
-```bash
-make package   # -> dist/linguabridge-extension-0.2.0.zip (debug pages excluded)
+npx @puppeteer/browsers install chrome@stable
 ```
 
 ## Project layout
 
 ```
-backend/
-  app/            FastAPI app, LLM adapters, prompts, sanitisation, cache
-  tests/          pytest suite
-  .env.example    configuration reference
-  run.sh          dev server launcher
-frontend/
-  manifest.json   MV3 manifest
-  content.js      observation, badge lifecycle, click handling
-  background.js   HTTP, retry, dedupe, cache
-  styles.css      shadow-DOM component styles
-  lib/            adapter registry + WebA/WebK/WhatsApp selector maps, UI,
-                  context window, sanitising, messaging, shared language catalogue
-  popup/          settings UI
-  translator/     standalone 250-character translator page
-  debug/          local DOM fixtures (not packaged)
-  icons/          generated PNGs
-docs/
-  architecture.md
-  selectors.md
-  manual-test-plan.md
-scripts/
-  make_icons.py
-  e2e-harness.mjs
+backend/         FastAPI app, Ollama/mock adapters, prompts, cache, tests
+frontend/        MV3 extension: content script, service worker, adapters, popup, translator
+docs/            architecture, selectors, manual test plan
+scripts/         icon generator, CDP E2E harness
+Makefile         setup / run / test / package commands
 ```
 
 ## Troubleshooting
 
 | Symptom | Fix |
 | ------- | --- |
-| No badges | Reload the Telegram/WhatsApp tab after loading the extension. Confirm the URL is `web.telegram.org/a/`, `web.telegram.org/k/` or `web.whatsapp.com`, and that the platform switch is on in the popup. Also check `chrome://extensions` → LinguaBridge → Details → Site access allows `web.whatsapp.com`. |
-| `Extension context invalidated` in the page console | The extension was reloaded or updated while that tab was still open. Refresh the tab; the old content script shuts down and the new one injects automatically. |
-| WhatsApp badges still missing | On `web.whatsapp.com`, open DevTools → Console and look for `[LinguaBridge] WhatsApp adapter: N message(s) detected, root …`. If N is 0, WhatsApp changed its markup: add the new row/test-id anchors to `frontend/lib/adapter-wa.js` and a matching fixture to `frontend/debug/harness-wa.html`. |
-| Popup status says translation is temporarily unavailable | Start Ollama (`ollama serve`) and re-test from the popup. The UI stays generic; use the backend logs for details. |
+| No badges | Reload the tab; confirm the site switch is on and the URL is supported. |
+| `Extension context invalidated` | Reload the tab after reloading/updating the extension. |
+| WhatsApp badges missing | Check the console for the adapter's detected-message count; markup may have changed. |
+| Translation unavailable | Start Ollama (`ollama serve`) and run **Test connection**. |
 | "model is not pulled" | `ollama pull <model>` matching `LB_OLLAMA_MODEL`. |
-| First click is slow | Cold model load. Increase `LB_OLLAMA_TIMEOUT_S` or send one warm-up request. |
-| Wrong or echoed translation | The backend retries once when a model returns the source unchanged; a stronger model (7B+) avoids most cases. |
-| `backend_unreachable` | Backend not running, or URL/port in the popup does not match `LB_PORT`. |
-| Badges on local pages | Local injection is limited to port 8788 by `include_globs`. |
-| CORS errors in the page console | All HTTP is done by the service worker; if you see page-level fetches, reload the extension. |
+| First click slow | Cold model load; raise `LB_OLLAMA_TIMEOUT_S` or send a warm-up request. |
+| `backend_unreachable` | Backend not running, or `backendUrl` does not match `LB_PORT`. |
+| CORS errors | All HTTP should go through the service worker; reload the extension. |
 
-See [docs/architecture.md](docs/architecture.md) for the request lifecycle and
-[docs/manual-test-plan.md](docs/manual-test-plan.md) for the full test checklist.
+More: [docs/architecture.md](docs/architecture.md) · [docs/manual-test-plan.md](docs/manual-test-plan.md) · [docs/selectors.md](docs/selectors.md)
