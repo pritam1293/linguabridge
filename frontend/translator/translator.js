@@ -6,12 +6,21 @@
 
   const FRIENDLY_ERRORS = {
     message_too_long: `Please keep the text to ${MAX_CHARS} characters or fewer.`,
-    backend_unreachable:
-      "Couldn't reach the translation server. Make sure the LinguaBridge server is running and try again.",
-    backend_timeout:
-      "The translation server took too long to respond. Try a shorter text.",
+    backend_unreachable: "Couldn't connect to the translation service. Please try again.",
+    llm_unreachable: "Couldn't connect to the translation service. Please try again.",
+    llm_transport_error: "Couldn't connect to the translation service. Please try again.",
+    backend_timeout: "Translation took too long. Please try again with a shorter text.",
+    llm_timeout: "Translation took too long. Please try again with a shorter text.",
+    model_not_found: "Translation is temporarily unavailable. Please try again later.",
+    llm_upstream_error: "Translation is temporarily unavailable. Please try again later.",
+    llm_invalid_output: "Something went wrong while translating. Please try again.",
+    llm_empty_response: "Something went wrong while translating. Please try again.",
+    invalid_backend_response: "Something went wrong while translating. Please try again.",
+    invalid_backend_url: "Translation service isn't available right now. Please try again later.",
+    backend_error: "Translation is temporarily unavailable. Please try again later.",
     rate_limited: "Too many requests right now. Wait a moment and try again.",
     invalid_request: "Type some text and choose a language first.",
+    invalid_language: "That language isn't supported. Choose another one.",
     disabled: "Translation is turned off in settings."
   };
 

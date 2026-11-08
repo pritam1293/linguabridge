@@ -18,10 +18,19 @@ For UI-only checks, use `http://127.0.0.1:8788/harness-a.html`, `harness-k.html`
 ## Badge injection — all supported clients
 
 - [ ] Open a chat with recent text messages on Telegram WebA, WebK and WhatsApp Web.
-- [ ] Every **incoming** text message shows a small badge at the bottom-end of its bubble.
+- [ ] Every **incoming** text message shows a small badge immediately to the **left** of its
+      bubble on WebA, WebK and WhatsApp.
+- [ ] On Telegram, the badge is overlaid on the bubble's left edge and removing/re-adding it
+      does not shift the message text horizontally.
+- [ ] On Telegram, message text is readable while new messages arrive and the badge stays
+      clickable during frequent row re-renders.
+- [ ] On WhatsApp, the badge is nowhere near the top-right action-menu chevron, and
+      clicking it never selects the message or opens the native menu.
 - [ ] **Own** messages show no badge.
 - [ ] Emoji-only, sticker, photo-only, voice and service messages show no badge.
 - [ ] On WhatsApp, a reply shows a badge on the message body only; the quoted text is not
+      included in the translation.
+- [ ] On WhatsApp, message timestamps (including ones using generated class names) are not
       included in the translation.
 - [ ] Badges survive scrolling up and down (virtualised list).
 - [ ] Sending a new incoming message (from another device/account) adds a badge without a
@@ -110,15 +119,17 @@ Use a conversation where meaning depends on the previous turn (pronouns, slang, 
 
 ## Failure handling
 
-- [ ] Stop the backend → click a badge → error panel with a "start backend" hint and
+- [ ] Stop the backend → click a badge → error panel shows a generic connection message and
       **Try again**.
 - [ ] Start the backend, click **Try again** → translation succeeds.
-- [ ] Stop Ollama only → error mentions `ollama serve`.
-- [ ] Set `LB_OLLAMA_MODEL` to an unpulled model → error mentions `ollama pull`.
+- [ ] Stop Ollama only → the panel still shows a generic unavailable message with no
+      backend, model or command details.
+- [ ] Set `LB_OLLAMA_MODEL` to an unpulled model → the panel shows the same generic
+      unavailable message, not the model name.
 - [ ] Set `LB_OLLAMA_TIMEOUT_S=1` with a cold model → timeout error, no hang.
 - [ ] Rapidly click many badges → no duplicated requests (worker dedupe); rate limit
       returns a readable error after 30/min.
-- [ ] Very long message (> cap) → `message_too_long` hint.
+- [ ] Very long message (> cap) → readable "too long" message.
 
 ## Theming and layout
 
@@ -126,8 +137,14 @@ Use a conversation where meaning depends on the previous turn (pronouns, slang, 
 - [ ] Dark theme: panel is dark, text readable, badge uses light foreground.
 - [ ] Switch Telegram or WhatsApp theme without reloading → new badges/panels match.
 - [ ] Narrow window / mobile-width layout: badge and panel do not overflow the bubble.
-- [ ] Zoom 80% and 150%: badge stays inside the bubble.
-- [ ] No layout shift of message text when a badge is added.
+- [ ] Zoom 80% and 150%: the badge stays to the left of the bubble and vertically centered
+      on Telegram WebA, Telegram WebK and WhatsApp.
+- [ ] No layout shift of message text when a badge is added, removed by a re-render, or
+      re-attached.
+- [ ] On WebK, the chat container stays a column and incoming messages do not jump
+      horizontally.
+- [ ] WhatsApp timestamps, reaction pills, quoted replies and bubble padding are unchanged
+      by the flex row wrapper.
 
 ## Privacy / security spot checks
 
@@ -156,11 +173,14 @@ for f in frontend/background.js frontend/content.js frontend/lib/*.js \
 node scripts/e2e-harness.mjs
 ```
 
-The e2e script asserts: 4 badges on WebA, 3 on WebK and 4 on WhatsApp, no outgoing badge,
-no emoji-only badge, bubble positioning, translated panel text, the
-`Translated in X.Y seconds` line, toggle-to-close, dark-theme detection, WhatsApp quoted
-reply exclusion and current-markup detection, and that a cached badge rebuilt after a
-simulated virtual-list re-render does not auto-open a panel.
+The e2e script asserts: 4 badges on WebA, 3 on WebK and 8 on WhatsApp, no outgoing badge,
+no emoji-only badge, translated panel text, the `Translated in X.Y seconds` line,
+toggle-to-close, dark-theme detection, left-side badge placement on all three clients,
+that removing and re-attaching a Telegram badge does not move the bubble (no layout
+shift), WhatsApp click/pointer isolation from row handlers, WhatsApp quoted reply exclusion,
+current-markup detection, generated-class timestamp exclusion (including the bubble
+fallback), and that a cached badge rebuilt after a simulated virtual-list re-render does
+not auto-open a panel.
 
 ## Release checklist
 

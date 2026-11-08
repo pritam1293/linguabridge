@@ -45,14 +45,14 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(RequestValidationError)
     async def _handle_validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
         # Never echo the submitted value: it may contain a private message.
-        first = exc.errors()[0] if exc.errors() else {}
-        location = ".".join(str(part) for part in first.get("loc", []) if part != "body")
-        detail = first.get("msg", "Invalid request")
-        if location:
-            detail = f"{location}: {detail}"
         return JSONResponse(
             status_code=422,
-            content={"error": {"code": "invalid_request", "message": detail}},
+            content={
+                "error": {
+                    "code": "invalid_request",
+                    "message": "Something went wrong with that request. Please try again.",
+                }
+            },
         )
 
     @app.exception_handler(Exception)
@@ -61,5 +61,10 @@ def register_exception_handlers(app: FastAPI) -> None:
         logger.exception("Unhandled error (%s)", type(exc).__name__)
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "internal_error", "message": "Unexpected server error."}},
+            content={
+                "error": {
+                    "code": "internal_error",
+                    "message": "Something went wrong. Please try again.",
+                }
+            },
         )

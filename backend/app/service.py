@@ -93,7 +93,7 @@ class TranslationService:
 
         target_code, target_name = normalize_language(request.target_language)
         if target_code == "auto" or not target_name:
-            raise APIError(422, "invalid_language", "target_language must name a concrete language.")
+            raise APIError(422, "invalid_language", "Please choose a supported language.")
 
         source_label = "auto"
         if request.source_language.strip().lower() not in ("", "auto"):
@@ -107,8 +107,7 @@ class TranslationService:
             raise APIError(
                 413,
                 "message_too_long",
-                f"Message is {len(message)} characters; the limit is "
-                f"{self._settings.max_message_chars}. Try translating a shorter part.",
+                "This message is too long to translate. Try a shorter part.",
             )
 
         # Defensive: the extension should never include the target message in
@@ -236,7 +235,7 @@ class TranslationService:
             raise APIError(
                 502,
                 "llm_invalid_output",
-                "The model returned a response that did not match the required schema.",
+                "Something went wrong while translating. Please try again.",
             ) from exc
 
     async def _retry_untranslated(

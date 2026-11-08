@@ -19,6 +19,28 @@
   const LB = (globalThis.LB = globalThis.LB || {});
   const configs = LB.adapterConfigs || {};
 
+  // A bare clock time (optionally with AM/PM and/or a date), e.g. `12:45`,
+  // `9:05 PM` or `12:45, 07/11/2026`. WhatsApp keeps this in a span whose class
+  // changes between builds, so class-based stripping alone is not enough.
+  const TIMESTAMP_ONLY =
+    /^\[?\s*\d{1,2}:\d{2}(?::\d{2})?(?:\s*[ap]\.?m\.?)?\s*(?:[,·•|]\s*\d{1,4}[/.-]\d{1,2}[/.-]\d{1,4})?\s*\]?$/i;
+
+  function stripTimestampLeaves(clone) {
+    const leaves = Array.from(clone.querySelectorAll("*")).filter(
+      (element) => element.children.length === 0
+    );
+    const timestamps = leaves.filter((element) =>
+      TIMESTAMP_ONLY.test((element.textContent || "").trim())
+    );
+    if (!timestamps.length) return;
+    // Keep a message whose whole body is a time (for example "12:45" sent as
+    // chat text); only drop metadata when real text remains.
+    let rest = clone.textContent || "";
+    for (const element of timestamps) rest = rest.replace(element.textContent, "");
+    if (!/\S/.test(rest)) return;
+    timestamps.forEach((element) => element.remove());
+  }
+
   function stripCloneText(node, config) {
     const clone = node.cloneNode(true);
     clone.querySelectorAll(config.stripSelectors.join(",")).forEach((element) => element.remove());
@@ -29,6 +51,7 @@
       const alt = element.getAttribute("alt") || "";
       element.replaceWith(document.createTextNode(alt));
     });
+    if (config.stripTimestampLeaves) stripTimestampLeaves(clone);
     return LB.sanitize.clean(clone.textContent || "");
   }
 
@@ -49,10 +72,25 @@
       return fallback;
     }
 
+    function isExcludedMessage(node, root) {
+      const selectors = config.messageExcludeSelectors || [];
+      for (const selector of selectors) {
+        try {
+          const excluded = node.closest(selector);
+          if (excluded && root.contains(excluded)) return true;
+        } catch (_error) {
+          // Ignore invalid optional selector.
+        }
+      }
+      return false;
+    }
+
     function getMessages() {
       const root = getRoot();
       if (!root) return [];
-      const nodes = Array.from(root.querySelectorAll(config.messageSelector));
+      const nodes = Array.from(root.querySelectorAll(config.messageSelector)).filter(
+        (node) => !isExcludedMessage(node, root)
+      );
       const visible = nodes.filter(
         (node) => node instanceof HTMLElement && node.getClientRects().length > 0
       );
@@ -107,7 +145,7 @@
 
     function getMessageText(element) {
       if (!element) return "";
-      const candidates = [];
+      const groups = [];
       for (const selector of config.textSelectors) {
         let nodes = [];
         try {
@@ -119,17 +157,36 @@
         // Configs with quote/reply exclusions need to inspect every candidate
         // (WhatsApp puts the quoted text in a separate selectable span).
         if (config.textExcludeSelectors) {
-          for (const node of nodes) {
+          const parts = [];
+          // If a selector matches nested nodes, keep only the outermost so the
+          // same text is not appended twice.
+          const topLevel = nodes.filter(
+            (node) => !nodes.some((other) => other !== node && other.contains(node))
+          );
+          for (const node of topLevel) {
             if (isExcludedTextNode(node)) continue;
-            candidates.push(stripCloneText(node, config));
+            const text = stripCloneText(node, config);
+            if (text && !parts.includes(text)) parts.push(text);
           }
+          if (parts.length) groups.push(LB.sanitize.clean(parts.join(" ")));
         } else if (nodes[0]) {
-          candidates.push(stripCloneText(nodes[0], config));
+          groups.push(stripCloneText(nodes[0], config));
         }
       }
-      candidates.push(stripCloneText(element, config));
+      groups.push(stripCloneText(element, config));
+
+      // WhatsApp: prefer the narrowest text selector instead of the longest
+      // candidate. The whole-bubble clone can contain timestamp spans whose
+      // class names are generated per build, which must never be translated.
+      if (config.preferTextSelectors) {
+        for (const candidate of groups) {
+          if (candidate) return candidate;
+        }
+        return "";
+      }
+
       let best = "";
-      for (const candidate of candidates) {
+      for (const candidate of groups) {
         if (candidate && candidate.length > best.length) best = candidate;
       }
       return best;
@@ -251,6 +308,10 @@
       name: config.name,
       label: config.label,
       platform: config.platform || "telegram",
+      // "inside" appends the badge to the bubble; "before" mounts it as a flex
+      // sibling ahead of the bubble; "left" overlays it on the bubble's left
+      // edge without changing the page's message flow (Telegram).
+      badgePlacement: config.badgePlacement || "inside",
       getRoot,
       getMessages,
       getMessageId,

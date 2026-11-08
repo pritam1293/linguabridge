@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "LinguaBridge — Contextual AI Translation for Telegram & WhatsApp Web",
+  "name": "LinguaBridge - contextual AI translation for chatting apps",
   "short_name": "LinguaBridge",
   "version": "0.2.0",
-  "description": "Opt-in, context-aware AI translation for Telegram Web and WhatsApp Web, plus a standalone 250-character text translator. Runs on your local model.",
+  "description": "Opt-in, contextual AI translation for your chatting apps, plus a standalone 250-character text translator. Runs locally for privacy.",
   "minimum_chrome_version": "116",
   "permissions": ["storage"],
   "host_permissions": [

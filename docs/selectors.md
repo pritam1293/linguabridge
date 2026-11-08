@@ -22,9 +22,12 @@ adapter config names it explicitly.
 | `rootSelectors` | Ordered candidates for the scroll/message container. First visible one that contains a message wins. |
 | `messageIdAttribute` | Attribute carrying the message id (defaults to `data-mid`). |
 | `messageSelector` | Element that owns one message. Nested matches are collapsed to the outermost. |
-| `textSelectors` | Candidates for the text/caption node. The longest extracted candidate wins. |
+| `textSelectors` | Candidates for the text/caption node. The longest extracted candidate wins unless `preferTextSelectors` is set. |
+| `preferTextSelectors` | When true, use the first (narrowest) selector that yields text instead of the longest candidate. Avoids whole-bubble clones on WhatsApp. |
 | `textExcludeSelectors` | Optional nodes to ignore entirely while extracting text (for example quoted replies). |
-| `bubbleSelectors` | Visual bubble wrapper; the badge host is appended here. |
+| `bubbleSelectors` | Visual bubble wrapper; the badge host and translation panel are attached relative to it. |
+| `badgePlacement` | `inside` (default) appends the badge to the bubble; `before` mounts it as a flex sibling ahead of the bubble; `left` overlays it on the bubble's left edge without affecting layout. |
+| `stripTimestampLeaves` | Optional safe net: remove leaf nodes whose entire text is just a clock time (WhatsApp generated classes). |
 | `senderSelectors` | Group sender name nodes. |
 | `senderAttribute` | Optional attribute containing sender metadata when the name is not a node (WhatsApp). |
 | `stripSelectors` | Nodes removed from a clone before text extraction (times, reactions, quotes, forwards, icons). |
@@ -46,6 +49,7 @@ rootSelectors: [
 messageSelector: "[data-mid]",
 textSelectors: [".text-content", ".message-text", ".Message .message", ".message"],
 bubbleSelectors: [".message-content", ".content-inner", ".bubble", ".Message"],
+badgePlacement: "left",
 senderSelectors: [".peer-title", ".sender-name", ".name"],
 outgoingTokens: ["is-out", "out", "own", "sent", "is-sent"],
 outgoingAttributes: ["data-out"]
@@ -71,10 +75,16 @@ textSelectors: [
   ".message"
 ],
 bubbleSelectors: [".bubble", ".message-content", ".content-inner"],
+badgePlacement: "left",
 senderSelectors: [".peer-title", ".sender-name", ".name"],
 outgoingTokens: ["is-out", "out", "own", "sent", "is-sent"],
 outgoingAttributes: ["data-out"]
 ```
+
+Telegram rows are virtualised and re-rendered often. Both clients use
+`badgePlacement: "left"`, which appends the badge to the bubble but positions it
+absolutely on the left edge. The badge therefore stays out of the flex flow: a row
+re-render can remove and re-add it without shifting the message text sideways.
 
 `stripSelectors` is identical in both Telegram files and covers `time`, `.time`,
 `.message-time`, `.MessageMeta`, `.sent-time`, `.edited`, reactions, `.tgico`, `svg`,
@@ -85,23 +95,43 @@ link previews, replies/quotes, forwards, and sender names.
 ```js
 rootSelectors: [
   '#main [data-testid="conversation-panel-messages"]',
+  '[data-testid="conversation-panel-messages"]',
   '#main [role="application"]',
   "#main .copyable-area",
-  "#main",
-  '[data-testid="conversation-panel-messages"]'
+  "#main"
 ],
 messageIdAttribute: "data-id",
-messageSelector: '[data-id], [data-testid="msg-container"]',
+messageSelector: [
+  "[data-id]",
+  '[data-testid="msg-container"]',
+  '[data-testid^="conv-msg-"]',
+  'div[role="row"] .copyable-text[data-pre-plain-text]',
+  ".copyable-text[data-pre-plain-text]",
+  "div.message-in",
+  "div.message-out",
+  "div.copyable-text"
+].join(", "),
+messageExcludeSelectors: [
+  '[data-testid="quoted-message"]',
+  '[data-testid="quoted-message-container"]',
+  '[data-testid="msg-quote"]',
+  ".quoted-message",
+  ".quoted-mention"
+],
 textSelectors: [
   '[data-testid="selectable-text"]:not([title])',
+  '[data-testid~="selectable-text"]',
   '[data-testid="conversation-text"]',
   '[data-testid="msg-text"]',
   'div.copyable-text span.selectable-text:not([title])',
   'span.selectable-text:not([title])',
   'span[dir="ltr"]',
   'span[dir="rtl"]',
+  ".copyable-text[data-pre-plain-text]",
   "div.copyable-text"
 ],
+preferTextSelectors: true,
+stripTimestampLeaves: true,
 textExcludeSelectors: [
   '[data-testid="quoted-message"]',
   '[data-testid="quoted-message-container"]',
@@ -109,21 +139,39 @@ textExcludeSelectors: [
   ".quoted-message",
   ".quoted-mention"
 ],
-bubbleSelectors: ['[data-testid="msg-container"]', "div.copyable-text", ".message-in", ".message-out"],
+bubbleSelectors: ["div.copyable-text", '[data-testid="msg-container"]', ".message-in", ".message-out"],
+badgePlacement: "before",
 senderAttribute: "data-pre-plain-text",
-outgoingTokens: ["message-out", "out"],
+outgoingTokens: ["message-out"],
 outgoingIdPrefix: "true_",
 groupSelectors: ['#main header [data-icon="default-group"]', '#main header [data-icon="group"]']
 ```
 
 WhatsApp class names are generated, so the stable anchors are `data-id`,
-`data-pre-plain-text`, `role`, `dir` and `data-testid`. Current builds can remove the
-legacy `selectable-text` class and expose only a bare message id, so the adapter also
-accepts `[data-testid="selectable-text"]`, `[data-testid="conversation-text"]` and
-`[data-testid="msg-container"]`. The sender name is parsed from
-`data-pre-plain-text` (`[time, date] Sender: `). Quoted replies are excluded from text
-extraction so they never leak into the translation prompt. Own messages are detected by
-the `message-out` class and the legacy `true_` id prefix.
+`data-pre-plain-text`, `role`, `dir` and `data-testid`. Builds differ in which of those
+survive: some keep `data-id`, some only expose `msg-container`, and newer builds key rows
+with `conv-msg-*` test ids or only expose the `.copyable-text[data-pre-plain-text]`
+wrapper. The adapter accepts all of them so a markup rollout does not hide every badge.
+Message text may be a `selectable-text` class, a `[data-testid="selectable-text"]` node, or
+a test id with extra tokens, so both `=` and `~=` forms are matched. The sender name is
+parsed from `data-pre-plain-text` (`[time, date] Sender: `). Quoted replies are excluded
+from text extraction and are never treated as standalone messages. Own messages are
+detected by the `message-out` class, the legacy `true_` id prefix, and a geometry fallback.
+
+WhatsApp's action-menu chevron appears at the bubble's top-right, so the badge is **not**
+attached to the bubble. `badgePlacement: "before"` inserts the badge host as a flex
+sibling immediately before the bubble and adds `lb-badge-row` to the wrapper
+(`display: flex; align-items: center; gap: 6px`), producing
+`[ Translate ] [ Message bubble ]` on the far left. Badge pointer/click events are
+stopped and prevented before they reach WhatsApp's delegated row handlers, so opening
+the translation never selects the message or opens the native menu. The translation
+panel still lives inside the bubble, below its text.
+
+Text extraction prefers the narrowest matching text selector (`preferTextSelectors`) so the
+whole-bubble clone is only used as a fallback. When that fallback is needed,
+`stripTimestampLeaves` removes any leaf whose entire text is just a clock time, covering
+builds that use generated class names for the timestamp. A message whose whole body is a
+time (for example `12:45` sent as chat text) is not stripped.
 
 ## How extraction works
 
@@ -131,11 +179,14 @@ the `message-out` class and the legacy `true_` id prefix.
 2. Candidate nodes inside `textExcludeSelectors` are skipped (WhatsApp quotes).
 3. `stripSelectors` nodes are removed from the clone.
 4. `<br>` becomes `\n`; images / custom emoji contribute their `alt` text.
-5. Text is sanitised (NFC, control/bidi removal, whitespace bounds).
-6. The longest non-empty candidate is returned.
+5. With `stripTimestampLeaves`, time-only leaf nodes are removed when real text remains.
+6. Text is sanitised (control/bidi removal, whitespace bounds).
+7. `preferTextSelectors` returns the first non-empty selector group; otherwise the longest
+   non-empty candidate is returned.
 
-This means a selector can be broad (`.message`) without leaking timestamps into the
-translation prompt.
+On WhatsApp the whole-bubble clone can contain timestamp spans with generated class names,
+which is why the narrowest selector is preferred. This also means a broad selector can stay
+as a last-resort fallback without leaking timestamps into the translation prompt.
 
 ## Outgoing detection
 
@@ -173,12 +224,15 @@ The fixtures intentionally use different markup shapes:
 
 - `harness-a.html` — `.Message` rows, `.message-content` bubbles, `.own` for outgoing,
   `.MessageMeta` timestamp, one emoji-only message, one Arabic RTL message.
-- `harness-k.html` — `.bubble` owners carrying `data-mid`, `.is-out` for outgoing,
-  `.time` timestamps, dark background for theme detection.
+- `harness-k.html` — `.bubble` owners carrying `data-mid` directly in a column container,
+  `.is-out` for outgoing, `.time` timestamps, dark background for theme detection.
 - `harness-wa.html` — `.message-in` / `.message-out` rows carrying `data-id`,
   `data-pre-plain-text` sender metadata, a quoted reply that must stay out of the
-  translation, an emoji-only message, and a current-WhatsApp message using
-  `data-testid="selectable-text"` with a bare message id.
+  translation, an emoji-only message, a current-WhatsApp message using
+  `data-testid="selectable-text"` with a bare message id, a newest-build `conv-msg-*` row
+  without `data-id`, a row anchored only by `.copyable-text[data-pre-plain-text]`, and two
+  messages whose timestamp span uses generated classes (one with a normal text node, one
+  where only the bubble fallback matches).
 
 They set `data-lb-client="a"` / `"k"` / `"wa"` on `<body>` so the registry selects the
 adapter without needing URL paths. Serve them on port `8788`; the manifest's

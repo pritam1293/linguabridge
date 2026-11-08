@@ -16,9 +16,25 @@
 
   let stylesPromise = null;
 
+  // The badge is mounted inside the bubble on Telegram, but as a flex sibling
+  // before the bubble on WhatsApp (see `placement` in attachBadge). WeakMap
+  // keeps the pair together across re-renders without leaking detached rows.
+  const badgeByBubble = new WeakMap();
+
   function getStyles() {
     if (!stylesPromise) {
-      stylesPromise = fetch(chrome.runtime.getURL("styles.css"))
+      // Reloading the unpacked extension invalidates the context of content
+      // scripts that are still running in an open tab. getURL() then throws
+      // synchronously; fall back to an empty stylesheet instead of spamming
+      // the page console (content.js stops the script shortly afterwards).
+      let url = "";
+      try {
+        url = chrome.runtime.getURL("styles.css");
+      } catch (_error) {
+        stylesPromise = Promise.resolve("");
+        return stylesPromise;
+      }
+      stylesPromise = fetch(url)
         .then((response) => (response.ok ? response.text() : ""))
         .catch(() => "");
     }
@@ -86,8 +102,145 @@
     bubble.querySelectorAll(':scope > [data-lb-ui="panel"]').forEach((node) => node.remove());
   }
 
-  function attachBadge(bubble, meta, onActivate) {
-    ensurePositioned(bubble);
+  function cleanupFlexParent(parent) {
+    if (!parent || !parent.classList) return;
+    if (!parent.querySelector(':scope > [data-lb-ui="badge"]')) {
+      parent.classList.remove("lb-badge-row");
+    }
+  }
+
+  function findBadge(bubble) {
+    if (!bubble) return null;
+    const tracked = badgeByBubble.get(bubble);
+    if (tracked && tracked.host && tracked.host.isConnected) return tracked.host;
+    if (tracked) badgeByBubble.delete(bubble);
+
+    // Fallbacks cover badges that survived a re-render outside the WeakMap.
+    const inside = bubble.querySelector(':scope > [data-lb-ui="badge"]');
+    if (inside) return inside;
+    const previous = bubble.previousElementSibling;
+    if (previous && previous.matches && previous.matches('[data-lb-ui="badge"]')) return previous;
+    return null;
+  }
+
+  function removeBadge(bubble) {
+    if (!bubble) return;
+    const tracked = badgeByBubble.get(bubble);
+    badgeByBubble.delete(bubble);
+    if (tracked && tracked.host) {
+      const parent = tracked.host.parentElement;
+      tracked.host.remove();
+      cleanupFlexParent(parent);
+    }
+
+    const inside = bubble.querySelector(':scope > [data-lb-ui="badge"]');
+    if (inside) {
+      const parent = inside.parentElement;
+      inside.remove();
+      cleanupFlexParent(parent);
+    }
+
+    const previous = bubble.previousElementSibling;
+    if (previous && previous.matches && previous.matches('[data-lb-ui="badge"]')) {
+      const parent = previous.parentElement;
+      previous.remove();
+      cleanupFlexParent(parent);
+    }
+  }
+
+  function clearUi(bubble) {
+    if (!bubble) return;
+    removeBadge(bubble);
+    clearPanels(bubble);
+  }
+
+  function pruneBadges() {
+    document.querySelectorAll('[data-lb-ui="badge"]').forEach((host) => {
+      const bubble = host.__lbBubble;
+      const parent = host.parentElement;
+      if (!bubble || !bubble.isConnected) {
+        host.remove();
+        if (bubble) badgeByBubble.delete(bubble);
+        cleanupFlexParent(parent);
+        return;
+      }
+      if (host.dataset.lbMount !== "before") return;
+      // The bubble was moved or re-rendered: drop the orphaned sibling and let
+      // the next reconcile attach a fresh badge.
+      if (bubble.previousElementSibling !== host) {
+        host.remove();
+        badgeByBubble.delete(bubble);
+        cleanupFlexParent(parent);
+        return;
+      }
+      // WhatsApp can rewrite className on the row wrapper.
+      if (parent && !parent.classList.contains("lb-badge-row")) {
+        parent.classList.add("lb-badge-row");
+      }
+    });
+  }
+
+  function mountBadge(bubble, host, placement) {
+    if (placement === "before") {
+      const parent = bubble.parentElement;
+      if (parent && parent !== document.body && parent !== document.documentElement) {
+        parent.insertBefore(host, bubble);
+        parent.classList.add("lb-badge-row");
+        host.dataset.lbMount = "before";
+        host.classList.add("lb-badge-host--before");
+        return;
+      }
+      // No usable row container: keep the badge inside the bubble, on the left.
+      ensurePositioned(bubble);
+      host.dataset.lbMount = "inside";
+      host.classList.add("lb-badge-host--left");
+      bubble.appendChild(host);
+      return;
+    }
+    if (placement === "left") {
+      // Absolute positioning keeps the badge out of the message flow: page
+      // re-renders can remove/re-add it without shifting the bubble text.
+      ensurePositioned(bubble);
+      host.dataset.lbMount = "inside";
+      host.classList.add("lb-badge-host--left");
+      bubble.appendChild(host);
+      return;
+    }
+    host.dataset.lbMount = "inside";
+    bubble.appendChild(host);
+  }
+
+  function isolateEvents(host, onActivate) {
+    // WhatsApp opens its context menu / selection on pointer and mouse events.
+    // Stop every one of them before they reach the row's delegated handlers.
+    const stop = (event) => event.stopPropagation();
+    for (const type of ["pointerdown", "mousedown", "pointerup", "mouseup"]) {
+      host.addEventListener(type, stop);
+    }
+    host.addEventListener("touchstart", stop, { passive: true });
+    host.addEventListener("touchend", stop, { passive: true });
+    host.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    host.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (host.dataset.lbBusy === "1") return;
+      if (typeof onActivate === "function") onActivate();
+    });
+  }
+
+  function attachBadge(bubble, meta, onActivate, options) {
+    if (!bubble) return null;
+    const opts = options || {};
+    const placement =
+      opts.placement === "before" || opts.placement === "left" ? opts.placement : "inside";
+
+    // An edited message or a re-render can leave a stale badge behind.
+    removeBadge(bubble);
+    if (placement !== "before") ensurePositioned(bubble);
+
     const { host, shadow } = makeHost("lb-badge-host", "badge");
     host.dataset.lbTextHash = meta && meta.textHash ? meta.textHash : "";
     host.dataset.lbMessageId = meta && meta.messageId ? meta.messageId : "";
@@ -100,15 +253,13 @@
     button.innerHTML = ICON; // static markup only
     shadow.appendChild(button);
 
-    host.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (host.dataset.lbBusy === "1") return;
-      if (typeof onActivate === "function") onActivate();
-    });
+    isolateEvents(host, onActivate);
+    mountBadge(bubble, host, placement);
 
-    bubble.appendChild(host);
-    return { host, shadow, button, bubble };
+    const badge = { host, shadow, button, bubble };
+    badgeByBubble.set(bubble, badge);
+    host.__lbBubble = bubble;
+    return badge;
   }
 
   function setBadgeState(badge, state) {
@@ -167,22 +318,33 @@
     return host;
   }
 
-  function errorHint(code) {
-    switch (code) {
-      case "backend_unreachable":
-        return "The local backend is not reachable. Start it with backend/run.sh.";
-      case "backend_timeout":
-        return "The model took too long. Try again, or use a smaller model.";
-      case "llm_unreachable":
-        return "Ollama is not running. Start it with `ollama serve`.";
-      case "model_not_found":
-        return "Pull the configured model with `ollama pull <model>`.";
-      case "rate_limited":
-        return "A few seconds of rest, then try again.";
+  function friendlyError(error) {
+    switch (error && error.code) {
       case "message_too_long":
-        return "This message is too long for one request.";
+        return "This message is too long to translate.";
+      case "rate_limited":
+        return "Too many requests right now. Wait a moment and try again.";
+      case "invalid_language":
+        return "That language isn't supported. Choose another one.";
+      case "disabled":
+        return "Translation is turned off for this site.";
+      case "backend_unreachable":
+      case "llm_unreachable":
+      case "llm_transport_error":
+        return "Couldn't connect to the translation service. Please try again.";
+      case "backend_timeout":
+      case "llm_timeout":
+        return "Translation took too long. Please try again.";
+      case "invalid_backend_url":
+      case "invalid_backend_response":
+      case "backend_error":
+      case "model_not_found":
+      case "llm_upstream_error":
+      case "llm_invalid_output":
+      case "llm_empty_response":
+        return "Translation is temporarily unavailable. Please try again later.";
       default:
-        return "";
+        return "Something went wrong. Please try again.";
     }
   }
 
@@ -194,13 +356,7 @@
     panel.setAttribute("role", "alert");
     panel.appendChild(makeElement("span", "lb-panel__brand", "LinguaBridge"));
 
-    const message = makeElement(
-      "p",
-      "lb-error",
-      (error && error.message) || "Translation failed."
-    );
-    const hint = errorHint(error && error.code);
-    if (hint) message.appendChild(makeElement("span", "lb-error__hint", hint));
+    const message = makeElement("p", "lb-error", friendlyError(error));
     panel.appendChild(message);
 
     const actions = makeElement("div", "lb-actions");
@@ -227,11 +383,17 @@
 
   function clearAll() {
     document.querySelectorAll("[data-lb-ui]").forEach((node) => node.remove());
+    // Sibling-mounted badges leave their flex wrapper class behind.
+    document.querySelectorAll(".lb-badge-row").forEach((node) => node.classList.remove("lb-badge-row"));
     restorePositions();
   }
 
   LB.ui = {
     attachBadge,
+    findBadge,
+    removeBadge,
+    clearUi,
+    pruneBadges,
     setBadgeState,
     showPanel,
     showLoading,

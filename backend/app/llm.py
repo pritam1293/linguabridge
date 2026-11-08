@@ -18,6 +18,10 @@ from .errors import APIError
 
 logger = logging.getLogger("linguabridge")
 
+_UNAVAILABLE = "Translation is temporarily unavailable. Please try again."
+_TIMEOUT = "Translation took too long. Please try again."
+_INVALID = "Something went wrong while translating. Please try again."
+
 _MESSAGE_BLOCK = re.compile(
     r"UNTRUSTED_MESSAGE_BEGIN_[0-9a-f]+\n(.*?)\nUNTRUSTED_MESSAGE_END_[0-9a-f]+",
     re.DOTALL,
@@ -40,17 +44,14 @@ def parse_json_object(text: str) -> dict[str, Any]:
     cleaned = _FENCE.sub("", text.strip())
     start, end = cleaned.find("{"), cleaned.rfind("}")
     if start == -1 or end <= start:
-        raise APIError(502, "llm_invalid_output", "The model did not return a JSON object.")
+        raise APIError(502, "llm_invalid_output", _INVALID)
     try:
         value = json.loads(cleaned[start : end + 1])
     except json.JSONDecodeError as exc:
-        raise APIError(
-            502,
-            "llm_invalid_output",
-            f"The model returned invalid JSON ({exc.msg}).",
-        ) from exc
+        logger.warning("LLM returned invalid JSON: %s", exc.msg)
+        raise APIError(502, "llm_invalid_output", _INVALID) from exc
     if not isinstance(value, dict):
-        raise APIError(502, "llm_invalid_output", "The model output was not a JSON object.")
+        raise APIError(502, "llm_invalid_output", _INVALID)
     return value
 
 
@@ -77,45 +78,33 @@ class OllamaClient:
         try:
             response = await self._client.post("/api/chat", json=payload)
         except httpx.ConnectError as exc:
-            raise APIError(
-                503,
-                "llm_unreachable",
-                f"Could not reach Ollama at {self._settings.ollama_base_url}. "
-                "Start it with `ollama serve`.",
-            ) from exc
+            logger.warning("LLM unreachable at %s", self._settings.ollama_base_url)
+            raise APIError(503, "llm_unreachable", _UNAVAILABLE) from exc
         except httpx.TimeoutException as exc:
-            raise APIError(
-                504,
-                "llm_timeout",
-                f"Ollama did not answer within {self._settings.ollama_timeout_s:.0f}s. "
-                "A smaller model or a warm-up request may help.",
-            ) from exc
+            logger.warning("LLM timed out after %.0fs", self._settings.ollama_timeout_s)
+            raise APIError(504, "llm_timeout", _TIMEOUT) from exc
         except httpx.HTTPError as exc:
-            raise APIError(502, "llm_transport_error", "Could not talk to Ollama.") from exc
+            logger.warning("LLM transport error: %s", type(exc).__name__)
+            raise APIError(502, "llm_transport_error", _UNAVAILABLE) from exc
 
         if response.status_code == 404:
-            raise APIError(
-                503,
-                "model_not_found",
-                f"Ollama model '{self._settings.ollama_model}' is not available. "
-                f"Run `ollama pull {self._settings.ollama_model}`.",
-            )
+            logger.warning("LLM model not available: %s", self._settings.ollama_model)
+            raise APIError(503, "model_not_found", _UNAVAILABLE)
         if response.status_code >= 400:
             detail = response.text[:200].replace(self._settings.ollama_base_url, "")
-            raise APIError(
-                502,
-                "llm_upstream_error",
-                f"Ollama returned HTTP {response.status_code}: {detail}",
-            )
+            logger.warning("LLM upstream HTTP %s: %s", response.status_code, detail)
+            raise APIError(502, "llm_upstream_error", _UNAVAILABLE)
 
         try:
             data = response.json()
         except ValueError as exc:
-            raise APIError(502, "llm_invalid_output", "Ollama returned a non-JSON response.") from exc
+            logger.warning("LLM returned a non-JSON body")
+            raise APIError(502, "llm_invalid_output", _INVALID) from exc
 
         content = (data.get("message") or {}).get("content") or ""
         if not content.strip():
-            raise APIError(502, "llm_empty_response", "Ollama returned an empty response.")
+            logger.warning("LLM returned an empty response")
+            raise APIError(502, "llm_empty_response", _INVALID)
         return parse_json_object(content)
 
     @staticmethod
@@ -135,7 +124,7 @@ class OllamaClient:
                 "ollama": "down",
                 "model_present": False,
                 "detail": type(exc).__name__,
-                "hint": f"Start Ollama with `ollama serve` (expected at {self._settings.ollama_base_url}).",
+                "hint": "Translation is temporarily unavailable. Please try again later.",
             }
         present = self._model_present(self._settings.ollama_model, models)
         return {
@@ -145,7 +134,7 @@ class OllamaClient:
             "models": models[:25],
             "hint": None
             if present
-            else f"Run `ollama pull {self._settings.ollama_model}`.",
+            else "Translation is not ready yet. Please try again later.",
         }
 
     async def aclose(self) -> None:

@@ -29,6 +29,10 @@
       ".message"
     ],
     bubbleSelectors: [".bubble", ".message-content", ".content-inner"],
+    // WebK bubbles are direct children of a column flex container, so a flex
+    // sibling would stack as a new row. Overlay the badge on the bubble's left
+    // edge instead; this also prevents layout shifts on every re-render.
+    badgePlacement: "left",
     senderSelectors: [".peer-title", ".sender-name", ".name"],
     stripSelectors: [
       "[data-lb-ui]",

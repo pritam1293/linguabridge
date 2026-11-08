@@ -162,7 +162,8 @@ async def test_deep_health_reports_missing_model():
     finally:
         await client.aclose()
     assert health["model_present"] is False
-    assert "ollama pull qwen2.5:7b" in health["hint"]
+    assert health["hint"]
+    assert "ollama" not in health["hint"].lower()
 
 
 async def test_deep_health_never_raises():

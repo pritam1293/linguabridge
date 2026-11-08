@@ -208,7 +208,7 @@
 
       if (!response.ok) {
         setStatus(
-          "Couldn't connect to the server. Make sure the LinguaBridge server is running and try again.",
+          "Couldn't connect to the translation service. Please try again.",
           "err"
         );
         return;
@@ -216,10 +216,10 @@
 
       const llm = (response.data && response.data.llm) || {};
       if (llm.model_present) {
-        setStatus("Connected — the server is working fine.", "ok");
+        setStatus("Translation service is ready.", "ok");
       } else {
         setStatus(
-          "The server is running, but translation isn't ready yet. Start the local AI model and try again.",
+          "Translation is temporarily unavailable. Please try again later.",
           "warn"
         );
       }

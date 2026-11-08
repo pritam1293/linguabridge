@@ -134,6 +134,29 @@
           </div>
         </div>
 
+        <!-- Timestamp span with a generated class and no test id. The message
+             body must be the only thing sent for translation. -->
+        <div role="row">
+          <div class="message-in" data-id="false_1234567890@c.us_WA7">
+            <div class="copyable-text" data-pre-plain-text="[21:11, 07/11/2026] Ana: ">
+              <div class="sender">Ana</div>
+              <span class="selectable-text copyable-text" dir="ltr">Tumhari doobti team ko mere jaise tinke ka sahara 😗</span>
+              <span class="x1rg5ohu" aria-hidden="true">12:45</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- No known text selector: only the bubble wrapper matches, so the
+             fallback must strip the time-only leaf itself. -->
+        <div role="row">
+          <div class="message-in" data-id="false_1234567890@c.us_WA8">
+            <div class="copyable-text" data-pre-plain-text="[21:12, 07/11/2026] Bruno: ">
+              <div class="x1lj0gfb" dir="auto">Nos vemos a las nueve.</div>
+              <span class="x1rg5ohu" aria-hidden="true">21:12</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Current WhatsApp Web: bare message id and data-testid text node,
              without the legacy selectable-text class. -->
         <div role="row">
@@ -145,7 +168,42 @@
             </div>
           </div>
         </div>
+
+        <!-- Newest WhatsApp Web: rows keyed by `conv-msg-*` with no `data-id`,
+             and text in a `msg-container` with a tokenised test id. -->
+        <div role="row" data-testid="conv-msg-7A1">
+          <div class="copyable-text" data-pre-plain-text="[21:09, 07/11/2026] Bruno: ">
+            <div data-testid="msg-container">
+              <span data-testid="selectable-text message-text" dir="auto"
+                >¿Dónde nos encontramos?</span
+              >
+            </div>
+            <span data-testid="msg-meta"><span data-testid="msg-time">21:09</span></span>
+          </div>
+        </div>
+
+        <!-- Fallback shape: only the copyable-text wrapper is a stable anchor. -->
+        <div role="row">
+          <div class="copyable-text" data-pre-plain-text="[21:10, 07/11/2026] Ana: ">
+            <div data-testid="selectable-text" dir="auto">Nos vemos a las nueve.</div>
+          </div>
+        </div>
       </div>
     </div>
+
+    <script>
+      // e2e: prove that badge events never reach WhatsApp-style row handlers.
+      window.__lbRowClicks = 0;
+      window.__lbRowPointerDowns = 0;
+      document.querySelectorAll(".message-in").forEach((row) => {
+        row.addEventListener("click", () => {
+          window.__lbRowClicks += 1;
+          row.dataset.lbRowClicked = "yes";
+        });
+        row.addEventListener("pointerdown", () => {
+          window.__lbRowPointerDowns += 1;
+        });
+      });
+    </script>
   </body>
 </html>

@@ -29,6 +29,55 @@
   let timer = null;
   let lastReconcile = 0;
   let observer = null;
+  let interval = null;
+  let stopped = false;
+
+  // Reloading/updating the unpacked extension leaves content scripts from the
+  // old context in already-open tabs. Chrome then throws "Extension context
+  // invalidated" on the next runtime call. Detect it once, remove our UI and
+  // shut down quietly; a tab refresh injects the new content script.
+  function extensionAlive() {
+    try {
+      return Boolean(chrome && chrome.runtime && chrome.runtime.id);
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  function stopForInvalidContext() {
+    if (stopped) return;
+    stopped = true;
+    enabled = false;
+    if (timer) {
+      window.clearTimeout(timer);
+      timer = null;
+    }
+    if (observer) {
+      observer.disconnect();
+      observer = null;
+    }
+    if (interval) {
+      window.clearInterval(interval);
+      interval = null;
+    }
+    LB.ui.clearAll();
+    console.info(
+      "[LinguaBridge] Extension was reloaded or updated; refresh this tab to reactivate translation."
+    );
+  }
+
+  function safeListen(getEvent, handler) {
+    try {
+      getEvent().addListener(handler);
+    } catch (_error) {
+      stopForInvalidContext();
+    }
+  }
+
+  function invalidContextResponse(response) {
+    const message = response && response.error && response.error.message;
+    return typeof message === "string" && /extension context invalidated/i.test(message);
+  }
 
   const translationCache = new Map();
   const MAX_LOCAL_CACHE = 100;
@@ -51,12 +100,11 @@
   }
 
   function removeUi(bubble) {
-    if (!bubble) return;
-    bubble.querySelectorAll(':scope > [data-lb-ui]').forEach((node) => node.remove());
+    LB.ui.clearUi(bubble);
   }
 
   function schedule(delay) {
-    if (timer) return;
+    if (stopped || timer) return;
     timer = window.setTimeout(() => {
       timer = null;
       reconcile();
@@ -70,10 +118,16 @@
   }
 
   function reconcile() {
-    if (!enabled) return;
+    if (stopped || !enabled) return;
+    if (!extensionAlive()) {
+      stopForInvalidContext();
+      return;
+    }
     const now = performance.now();
     if (now - lastReconcile < 40) return;
     lastReconcile = now;
+
+    LB.ui.pruneBadges();
 
     let messages;
     try {
@@ -101,7 +155,7 @@
 
       const textHash = LB.sanitize.hash(text);
       const messageId = adapter.getMessageId(element) || `t:${textHash}`;
-      const existing = bubble.querySelector(':scope > [data-lb-ui="badge"]');
+      const existing = LB.ui.findBadge(bubble);
       if (existing) {
         // Edited message: discard the stale badge/translation.
         if (existing.dataset.lbTextHash === textHash) continue;
@@ -111,11 +165,10 @@
       const badge = LB.ui.attachBadge(
         bubble,
         { textHash, messageId },
-        () => activate(element, bubble, badge)
+        () => activate(element, bubble, badge),
+        { placement: adapter.badgePlacement }
       );
-      if (platform === "whatsapp") {
-        badge.host.classList.add("lb-badge-host--whatsapp");
-      }
+      if (!badge) continue;
 
       const cached = translationCache.get(cacheKey(messageId, textHash));
       if (cached) {
@@ -127,7 +180,11 @@
   }
 
   async function activate(owner, bubble, badge) {
-    if (!enabled || !bubble || !bubble.isConnected) return;
+    if (stopped || !enabled || !bubble || !bubble.isConnected) return;
+    if (!extensionAlive()) {
+      stopForInvalidContext();
+      return;
+    }
 
     // Badge doubles as a toggle: clicking while a result is open closes it.
     if (bubble.querySelector(':scope > [data-lb-ui="panel"]')) {
@@ -169,6 +226,10 @@
     LB.ui.setBadgeState(badge, "loading");
     LB.ui.showLoading(bubble);
     const response = await LB.messaging.translate(payload);
+    if (invalidContextResponse(response) || !extensionAlive()) {
+      stopForInvalidContext();
+      return;
+    }
     const ok = Boolean(response && response.ok && response.data);
     // Cache before the detached-row check: virtualised message rows often
     // detach mid-request, and the result should survive the re-render.
@@ -213,7 +274,19 @@
             schedule();
             return;
           }
-          if (node.closest && node.closest("[data-lb-ui]")) continue;
+          if (node.closest && node.closest("[data-lb-ui]")) {
+            // Our own UI mutations are ignored, except when the page removed a
+            // sibling-mounted badge but left its bubble in place: re-attach it
+            // promptly instead of waiting for the periodic safety net.
+            if (node.matches && node.matches('[data-lb-ui="badge"]')) {
+              const bubble = node.__lbBubble;
+              if (bubble && bubble.isConnected) {
+                schedule();
+                return;
+              }
+            }
+            continue;
+          }
           schedule();
           return;
         }
@@ -228,6 +301,10 @@
 
   async function refreshSettings() {
     const response = await LB.messaging.getSettings();
+    if (invalidContextResponse(response)) {
+      stopForInvalidContext();
+      return;
+    }
     if (response && response.ok && response.data) {
       settings = { ...DEFAULT_SETTINGS, ...response.data };
     }
@@ -236,11 +313,36 @@
 
   async function boot() {
     await refreshSettings();
+    if (stopped || !extensionAlive()) {
+      stopForInvalidContext();
+      return;
+    }
     startObserver();
     schedule(60);
 
+    // One-shot diagnostic for WhatsApp, whose markup changes often. It appears
+    // once per page load and helps narrow down selector regressions.
+    if (platform === "whatsapp") {
+      window.setTimeout(() => {
+        if (stopped) return;
+        let root = null;
+        let count = 0;
+        try {
+          root = adapter.getRoot();
+          count = adapter.getMessages().length;
+        } catch (_error) {
+          // Ignore; the log below still reports the failure state.
+        }
+        console.info(
+          `[LinguaBridge] WhatsApp adapter: ${count} message(s) detected, root ${
+            root ? root.tagName.toLowerCase() + (root.id ? `#${root.id}` : "") : "not found"
+          }, switch ${enabled ? "on" : "off"}.`
+        );
+      }, 4000);
+    }
+
     // Safety net for virtualised lists and missed mutations.
-    window.setInterval(() => {
+    interval = window.setInterval(() => {
       if (enabled && document.visibilityState === "visible") schedule(10);
     }, 5000);
 
@@ -250,14 +352,14 @@
       if (document.visibilityState === "visible") schedule(100);
     });
 
-    chrome.storage.onChanged.addListener(async (_changes, area) => {
+    safeListen(() => chrome.storage.onChanged, async (_changes, area) => {
       if (area !== "sync") return;
       await refreshSettings();
       LB.ui.clearAll();
       if (enabled) schedule(60);
     });
 
-    chrome.runtime.onMessage.addListener((message) => {
+    safeListen(() => chrome.runtime.onMessage, (message) => {
       if (message && message.type === "LB_RESCAN") {
         LB.ui.clearAll();
         schedule(40);

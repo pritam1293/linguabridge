@@ -241,7 +241,7 @@
           retryable: response.status >= 500,
           error: {
             code: detail.code || "backend_error",
-            message: detail.message || `Backend returned HTTP ${response.status}.`,
+            message: "Translation is temporarily unavailable. Please try again.",
             status: response.status,
             retryAfter: response.headers.get("Retry-After") || undefined
           }
@@ -253,7 +253,7 @@
           retryable: true,
           error: {
             code: "invalid_backend_response",
-            message: "The backend returned an unexpected response."
+            message: "Something went wrong while translating. Please try again."
           }
         };
       }
@@ -265,7 +265,7 @@
           retryable: false,
           error: {
             code: "backend_timeout",
-            message: `The backend did not answer within ${Math.round(REQUEST_TIMEOUT_MS / 1000)}s.`
+            message: "Translation took too long. Please try again."
           }
         };
       }
@@ -274,7 +274,7 @@
         retryable: true,
         error: {
           code: "backend_unreachable",
-          message: `Could not reach ${url}. Is the LinguaBridge backend running?`
+          message: "Couldn't connect to the translation service. Please try again."
         }
       };
     } finally {
@@ -289,7 +289,7 @@
         ok: false,
         error: {
           code: "invalid_backend_url",
-          message: "The backend URL in settings is not a valid http(s) URL."
+          message: "The translation service isn't configured correctly. Please try again later."
         }
       };
     }
@@ -327,8 +327,8 @@
           code: "disabled",
           message:
             platform === "whatsapp"
-              ? "LinguaBridge is turned off for WhatsApp Web."
-              : "LinguaBridge is turned off for Telegram Web."
+              ? "LinguaBridge is turned off for WhatsApp."
+              : "LinguaBridge is turned off for Telegram."
         }
       };
     }
@@ -374,7 +374,7 @@
     if (!isHttpUrl(url)) {
       return {
         ok: false,
-        error: { code: "invalid_backend_url", message: "Enter a valid http(s) backend URL." }
+        error: { code: "invalid_backend_url", message: "The translation service address isn't valid." }
       };
     }
 
@@ -393,7 +393,7 @@
           ok: false,
           error: {
             code: "backend_error",
-            message: `Backend returned HTTP ${response.status}.`,
+            message: "The translation service is temporarily unavailable. Please try again.",
             status: response.status
           }
         };
@@ -406,8 +406,8 @@
         error: {
           code: aborted ? "backend_timeout" : "backend_unreachable",
           message: aborted
-            ? "The backend did not answer within 5s."
-            : `Could not reach ${url}. Start the backend with backend/run.sh.`
+            ? "The translation service didn't respond. Please try again."
+            : "Couldn't connect to the translation service. Please try again."
         }
       };
     } finally {
@@ -421,7 +421,7 @@
       .catch(() =>
         sendResponse({
           ok: false,
-          error: { code: "internal_error", message: "Unexpected extension error." }
+          error: { code: "internal_error", message: "Something went wrong. Please try again." }
         })
       );
   }

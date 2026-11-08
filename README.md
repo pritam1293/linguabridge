@@ -1,6 +1,7 @@
 # LinguaBridge
 
-Context-aware AI translation for **Telegram Web and WhatsApp Web**, running entirely on your own machine.
+Context-aware AI translation for your chatting apps — currently Telegram Web and WhatsApp
+Web, running entirely on your own machine.
 
 LinguaBridge is a Manifest V3 Chrome extension plus a small FastAPI backend. Incoming
 messages get a subtle translate badge; clicking one sends that message — together with the
@@ -131,7 +132,10 @@ works even when both platform badge switches are off.
 | Switching chats | Badges re-render; cache keys are scoped per chat |
 
 Badges appear only on **incoming** text messages on every enabled platform. Emoji-only,
-sticker, media-only and service messages are skipped. A **green** badge means "ready to translate"; it turns
+sticker, media-only and service messages are skipped. On WhatsApp the badge is a flex sibling
+immediately to the **left** of the bubble, clear of WhatsApp's top-right action menu. On both
+Telegram clients it is absolutely positioned at the bubble's left edge, so frequent message
+re-renders never shift the text. A **green** badge means "ready to translate"; it turns
 **blue** once that message has been translated, shows a spinner while waiting, and turns
 red with a retry panel on error.
 
@@ -258,9 +262,10 @@ uses `http://127.0.0.1/*` matches narrowed by `include_globs` to port `8788`.
 ### End-to-end smoke test
 
 `scripts/e2e-harness.mjs` drives a real Chrome over CDP and asserts badge injection,
-incoming-only behaviour, bubble positioning, panel rendering, the time line and theming on
-the WebA, WebK and WhatsApp harness pages. WhatsApp checks also verify that quoted reply
-text is excluded from the translated body.
+incoming-only behaviour, left-side badge placement (and that removing/re-adding a badge does
+not shift the message), panel rendering, the time line and theming on the WebA, WebK and
+WhatsApp harness pages. WhatsApp checks also verify that quoted reply text and timestamp
+spans (including generated-class timestamps) are excluded from the translated body.
 
 ```bash
 # prerequisites: harness server on :8788, backend on :8787, Chrome with CDP on :9222
@@ -309,8 +314,10 @@ scripts/
 
 | Symptom | Fix |
 | ------- | --- |
-| No badges | Reload the Telegram/WhatsApp tab after loading the extension. Confirm the URL is `web.telegram.org/a/`, `web.telegram.org/k/` or `web.whatsapp.com`, and that the platform switch is on in the popup. |
-| "Backend is up, but Ollama is not reachable" | Start Ollama (`ollama serve`) and re-test from the popup. |
+| No badges | Reload the Telegram/WhatsApp tab after loading the extension. Confirm the URL is `web.telegram.org/a/`, `web.telegram.org/k/` or `web.whatsapp.com`, and that the platform switch is on in the popup. Also check `chrome://extensions` → LinguaBridge → Details → Site access allows `web.whatsapp.com`. |
+| `Extension context invalidated` in the page console | The extension was reloaded or updated while that tab was still open. Refresh the tab; the old content script shuts down and the new one injects automatically. |
+| WhatsApp badges still missing | On `web.whatsapp.com`, open DevTools → Console and look for `[LinguaBridge] WhatsApp adapter: N message(s) detected, root …`. If N is 0, WhatsApp changed its markup: add the new row/test-id anchors to `frontend/lib/adapter-wa.js` and a matching fixture to `frontend/debug/harness-wa.html`. |
+| Popup status says translation is temporarily unavailable | Start Ollama (`ollama serve`) and re-test from the popup. The UI stays generic; use the backend logs for details. |
 | "model is not pulled" | `ollama pull <model>` matching `LB_OLLAMA_MODEL`. |
 | First click is slow | Cold model load. Increase `LB_OLLAMA_TIMEOUT_S` or send one warm-up request. |
 | Wrong or echoed translation | The backend retries once when a model returns the source unchanged; a stronger model (7B+) avoids most cases. |

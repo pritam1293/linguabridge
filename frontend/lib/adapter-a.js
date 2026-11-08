@@ -24,6 +24,10 @@
       ".message"
     ],
     bubbleSelectors: [".message-content", ".content-inner", ".bubble", ".Message"],
+    // `.Message` is already a flex row, but inserting the badge into that row
+    // shifts the bubble whenever Telegram re-renders. Overlay it on the left
+    // edge instead so re-renders never move the message text.
+    badgePlacement: "left",
     senderSelectors: [".peer-title", ".sender-name", ".name"],
     stripSelectors: [
       "[data-lb-ui]",

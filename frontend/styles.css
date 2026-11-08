@@ -25,11 +25,44 @@
   contain: layout style;
 }
 
-/* WhatsApp clips negative offsets in its message rows, so keep the badge
- * inside the bubble there. */
-.lb-badge-host--whatsapp {
-  top: 4px !important;
-  inset-inline-end: 4px !important;
+/* WhatsApp: the badge is a flex sibling placed before the bubble. The row
+ * wrapper becomes a flex row so the order is [badge][bubble] with a small gap,
+ * keeping the badge away from WhatsApp's top-right action-menu chevron. */
+.lb-badge-host.lb-badge-host--before {
+  all: initial !important;
+  position: static !important;
+  inset: auto !important;
+  top: auto !important;
+  bottom: auto !important;
+  display: inline-flex !important;
+  flex: 0 0 auto !important;
+  align-self: center !important;
+  width: 20px !important;
+  height: 20px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  z-index: 12 !important;
+  direction: ltr !important;
+  contain: layout style;
+  pointer-events: auto !important;
+}
+
+.lb-badge-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+/* Telegram: the badge is absolutely positioned on the bubble's left edge. It
+ * stays out of the flex flow, so page re-renders that remove and re-add it do
+ * not shift the message text. */
+.lb-badge-host.lb-badge-host--left {
+  top: 50% !important;
+  inset-inline-start: -26px !important;
+  inset-inline-end: auto !important;
+  transform: translateY(-50%) !important;
+  z-index: 12 !important;
 }
 
 .lb-panel-host {
@@ -60,9 +93,28 @@
   direction: ltr;
 }
 
-:host(.lb-badge-host.lb-badge-host--whatsapp) {
-  top: 4px;
-  inset-inline-end: 4px;
+:host(.lb-badge-host.lb-badge-host--before) {
+  all: initial;
+  position: static;
+  inset: auto;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-self: center;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  padding: 0;
+  z-index: 12;
+  direction: ltr;
+  pointer-events: auto;
+}
+
+:host(.lb-badge-host.lb-badge-host--left) {
+  top: 50%;
+  inset-inline-start: -26px;
+  inset-inline-end: auto;
+  transform: translateY(-50%);
+  z-index: 12;
 }
 
 :host(.lb-panel-host) {
@@ -262,13 +314,6 @@
 
 :host(.lb-dark) .lb-error {
   color: #ff9d9d;
-}
-
-.lb-error__hint {
-  display: block;
-  margin-top: 3px;
-  font-size: 11px;
-  color: #7a8494;
 }
 
 .lb-actions {
